@@ -1,0 +1,53 @@
+# =========================================================
+# FoodRescue - Configuración Defensiva de Servidor Apache (.htaccess)
+# Blindaje para Despliegue en la Nube (Hosting / VPS / cPanel)
+# =========================================================
+
+# 1. Deshabilitar listado de directorios (Prevenir Directory Browsing)
+Options -Indexes
+
+# 2. Bloquear acceso directo a archivos sensibles y de base de datos
+<FilesMatch "(^#.*#|\.(sql|env|log|md|git|bak|backup|ini|sh|bat)|~)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 3. Bloquear acceso a archivos y carpetas ocultas (ej. .git, .env)
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 4. Inyección de Cabeceras HTTP de Seguridad en el Servidor
+<IfModule mod_headers.c>
+    # Prevención de Clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # Prevención de MIME-Sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # Filtro XSS para navegadores compatibles
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Política estricta de Referrer
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Restricción de permisos de hardware
+    Header always set Permissions-Policy "geolocation=(self), camera=(), microphone=()"
+    
+    # Ocultar huella del servidor PHP
+    Header unset X-Powered-By
+</IfModule>
+
+# 5. Configuración UTF-8 por defecto
+AddDefaultCharset UTF-8
