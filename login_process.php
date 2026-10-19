@@ -13,7 +13,7 @@ if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
     exit;
 }
 
-$email = filter_var(trim($_POST['email'] ?? ''), FILTER_SANITIZE_EMAIL);
+$email = mb_strtolower(trim($_POST['email'] ?? ''));
 $password = $_POST['password'] ?? '';
 
 if (empty($email) || empty($password)) {
@@ -23,7 +23,7 @@ if (empty($email) || empty($password)) {
 }
 
 // Mitigación de Ataques de Fuerza Bruta (Brute-Force Rate Limiting)
-$rateKey = 'login_' . strtolower($email) . '_' . ($_SERVER['REMOTE_ADDR'] ?? 'ip');
+$rateKey = 'login_' . $email . '_' . ($_SERVER['REMOTE_ADDR'] ?? 'ip');
 if (!checkRateLimit($rateKey, 5, 60)) {
     $remaining = getRateLimitRemainingSeconds($rateKey);
     $_SESSION['flash_error'] = "Demasiados intentos fallidos. Tu acceso está protegido temporalmente. Por favor espera {$remaining} segundos antes de reintentar.";
@@ -34,7 +34,7 @@ if (!checkRateLimit($rateKey, 5, 60)) {
 try {
     $pdo = getDBConnection();
 
-    $stmt = $pdo->prepare("SELECT id, nombre, email, password, rol FROM usuarios WHERE email = :email LIMIT 1");
+    $stmt = $pdo->prepare("SELECT id, nombre, email, password, rol FROM usuarios WHERE LOWER(email) = :email LIMIT 1");
     $stmt->execute([':email' => $email]);
     $usuario = $stmt->fetch();
 

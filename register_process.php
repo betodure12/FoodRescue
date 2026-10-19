@@ -24,7 +24,7 @@ if (!checkRateLimit($rateKey, 4, 120)) {
 
 // Obtener, desinfectar y truncar datos para prevenir desbordamientos o inyecciones
 $nombre = mb_substr(strip_tags(trim($_POST['nombre'] ?? '')), 0, 100);
-$email = filter_var(trim($_POST['email'] ?? ''), FILTER_SANITIZE_EMAIL);
+$email = mb_strtolower(trim($_POST['email'] ?? ''));
 $telefono = mb_substr(strip_tags(trim($_POST['telefono'] ?? '')), 0, 30);
 $direccion = mb_substr(strip_tags(trim($_POST['direccion'] ?? '')), 0, 200);
 $rol = trim($_POST['rol'] ?? 'cliente');
@@ -63,13 +63,13 @@ if ($password !== $password_confirm) {
 try {
     $pdo = getDBConnection();
 
-    // Verificar si el email ya se encuentra registrado
-    $checkStmt = $pdo->prepare("SELECT id FROM usuarios WHERE email = :email LIMIT 1");
+    // Verificar si el email ya se encuentra registrado (insensible a mayúsculas)
+    $checkStmt = $pdo->prepare("SELECT id, rol FROM usuarios WHERE LOWER(email) = :email LIMIT 1");
     $checkStmt->execute([':email' => $email]);
 
     if ($checkStmt->fetch()) {
-        $_SESSION['flash_error'] = "El correo electrónico ya está registrado. Por favor inicia sesión.";
-        header("Location: register.php");
+        $_SESSION['flash_error'] = "El correo '{$email}' ya se encuentra registrado en FoodRescue. Si es tu cuenta, por favor inicia sesión.";
+        header("Location: register.php?email=" . urlencode($email));
         exit;
     }
 
@@ -124,7 +124,12 @@ try {
         $pdo->rollBack();
     }
     error_log("Registration error: " . $e->getMessage());
-    $_SESSION['flash_error'] = "Ocurrió un error inesperado al procesar el registro. Por favor intenta de nuevo.";
-    header("Location: register.php");
+    if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate entry') !== false) {
+        $_SESSION['flash_error'] = "El correo '{$email}' ya se encuentra registrado. Por favor inicia sesión.";
+        header("Location: login.php?email=" . urlencode($email));
+    } else {
+        $_SESSION['flash_error'] = "Ocurrió un error inesperado al procesar el registro. Por favor intenta de nuevo.";
+        header("Location: register.php");
+    }
     exit;
 }

@@ -117,9 +117,13 @@ require_once __DIR__ . '/includes/header.php';
                         <label for="email" class="form-label fw-semibold">Correo Electrónico</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
-                            <input type="email" class="form-control" id="email" name="email" placeholder="nombre@correo.com" required maxlength="120">
+                            <input type="email" class="form-control" id="email" name="email" value="<?= htmlspecialchars($_GET['email'] ?? '') ?>" placeholder="nombre@correo.com" required maxlength="120" autocomplete="email">
+                            <span class="input-group-text bg-light" id="email-spinner" style="display:none;">
+                                <span class="spinner-border spinner-border-sm text-secondary" role="status"></span>
+                            </span>
                         </div>
-                        <div class="form-text small">Será tu usuario para iniciar sesión en la plataforma.</div>
+                        <div id="email-feedback" class="mt-1 small"></div>
+                        <div class="form-text small text-muted">Será tu usuario único para iniciar sesión en la plataforma.</div>
                     </div>
 
                     <div class="row g-2">
@@ -157,14 +161,15 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="input-group-text bg-light"><i class="bi bi-shield-lock"></i></span>
                             <input type="password" class="form-control" id="password_confirm" name="password_confirm" placeholder="Repite tu contraseña" required minlength="6" maxlength="72">
                         </div>
+                        <div id="password-match-feedback" class="mt-1 small"></div>
                     </div>
 
                     <div class="alert alert-light border small text-muted mb-3 d-flex align-items-center">
                         <i class="bi bi-shield-check text-success fs-5 me-2 flex-shrink-0"></i>
-                        <span><strong>Seguridad Nivel Cloud:</strong> Contraseña protegida con cifrado criptográfico BCRYPT, tokens anti-CSRF y protección activa contra ataques de fuerza bruta.</span>
+                        <span><strong>Seguridad Nivel Cloud:</strong> Contraseña protegida con cifrado criptográfico BCRYPT, verificación anti-duplicados y tokens anti-CSRF.</span>
                     </div>
 
-                    <button type="submit" class="btn btn-fr-primary w-100 py-2 fs-6 mb-3 shadow-sm">
+                    <button type="submit" id="btnSubmitRegistro" class="btn btn-fr-primary w-100 py-2 fs-6 mb-3 shadow-sm">
                         <i class="bi bi-check-circle-fill me-1"></i> Registrar Cuenta en FoodRescue
                     </button>
 
@@ -190,6 +195,19 @@ require_once __DIR__ . '/includes/header.php';
     const rolExplanation = document.getElementById('rol-explanation');
     const rolIcon = document.getElementById('rol-icon');
     const rolText = document.getElementById('rol-text');
+
+    // Elementos de validación en tiempo real
+    const inputEmail = document.getElementById('email');
+    const emailFeedback = document.getElementById('email-feedback');
+    const emailSpinner = document.getElementById('email-spinner');
+    const inputPassword = document.getElementById('password');
+    const inputPasswordConfirm = document.getElementById('password_confirm');
+    const passwordFeedback = document.getElementById('password-match-feedback');
+    const btnSubmit = document.getElementById('btnSubmitRegistro');
+    const formRegistro = document.getElementById('formRegistro');
+
+    let emailValido = true;
+    let emailTimer = null;
 
     function updateRoleUI() {
         if (radioComercio.checked) {
@@ -217,6 +235,111 @@ require_once __DIR__ . '/includes/header.php';
 
     radioCliente.addEventListener('change', updateRoleUI);
     radioComercio.addEventListener('change', updateRoleUI);
+
+    // Verificación de disponibilidad de correo en tiempo real (anti-duplicados)
+    function verificarEmailEnServidor(email) {
+        if (!email || !email.includes('@') || email.length < 5) {
+            emailFeedback.innerHTML = '';
+            inputEmail.classList.remove('is-invalid', 'is-valid');
+            emailValido = true;
+            btnSubmit.disabled = false;
+            return;
+        }
+
+        emailSpinner.style.display = 'block';
+
+        fetch('api/check_email.php?email=' + encodeURIComponent(email))
+            .then(res => res.json())
+            .then(data => {
+                emailSpinner.style.display = 'none';
+                if (data.exists) {
+                    emailValido = false;
+                    inputEmail.classList.add('is-invalid');
+                    inputEmail.classList.remove('is-valid');
+                    emailFeedback.innerHTML = `
+                        <div class="alert alert-warning py-2 px-3 mt-1 mb-0 rounded-3 d-flex align-items-center justify-content-between shadow-sm">
+                            <div class="small">
+                                <i class="bi bi-exclamation-triangle-fill text-warning-emphasis me-1"></i>
+                                <strong>Este correo ya está registrado en FoodRescue.</strong>
+                            </div>
+                            <a href="login.php?email=${encodeURIComponent(email)}" class="btn btn-sm btn-dark text-nowrap ms-2 fw-semibold">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión
+                            </a>
+                        </div>
+                    `;
+                    btnSubmit.disabled = true;
+                } else if (data.valid) {
+                    emailValido = true;
+                    inputEmail.classList.remove('is-invalid');
+                    inputEmail.classList.add('is-valid');
+                    emailFeedback.innerHTML = `
+                        <div class="text-success small fw-semibold mt-1">
+                            <i class="bi bi-check-circle-fill me-1"></i> Correo disponible para crear tu cuenta
+                        </div>
+                    `;
+                    btnSubmit.disabled = false;
+                }
+            })
+            .catch(() => {
+                emailSpinner.style.display = 'none';
+            });
+    }
+
+    inputEmail.addEventListener('input', () => {
+        clearTimeout(emailTimer);
+        emailTimer = setTimeout(() => {
+            verificarEmailEnServidor(inputEmail.value.trim());
+        }, 350);
+    });
+
+    inputEmail.addEventListener('blur', () => {
+        verificarEmailEnServidor(inputEmail.value.trim());
+    });
+
+    // Verificación de coincidencia de contraseñas en vivo
+    function verificarPasswords() {
+        const p1 = inputPassword.value;
+        const p2 = inputPasswordConfirm.value;
+
+        if (!p2) {
+            passwordFeedback.innerHTML = '';
+            inputPasswordConfirm.classList.remove('is-invalid', 'is-valid');
+            return true;
+        }
+
+        if (p1 === p2) {
+            passwordFeedback.innerHTML = '<span class="text-success small fw-semibold"><i class="bi bi-check-circle-fill me-1"></i> Las contraseñas coinciden</span>';
+            inputPasswordConfirm.classList.remove('is-invalid');
+            inputPasswordConfirm.classList.add('is-valid');
+            return true;
+        } else {
+            passwordFeedback.innerHTML = '<span class="text-danger small fw-semibold"><i class="bi bi-x-circle-fill me-1"></i> Las contraseñas no coinciden</span>';
+            inputPasswordConfirm.classList.add('is-invalid');
+            inputPasswordConfirm.classList.remove('is-valid');
+            return false;
+        }
+    }
+
+    inputPassword.addEventListener('input', verificarPasswords);
+    inputPasswordConfirm.addEventListener('input', verificarPasswords);
+
+    formRegistro.addEventListener('submit', (e) => {
+        if (!emailValido) {
+            e.preventDefault();
+            inputEmail.focus();
+            return;
+        }
+        if (!verificarPasswords()) {
+            e.preventDefault();
+            inputPasswordConfirm.focus();
+            return;
+        }
+    });
+
+    // Si viene email en la URL, verificarlo de inmediato
+    if (inputEmail.value.trim() !== '') {
+        verificarEmailEnServidor(inputEmail.value.trim());
+    }
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

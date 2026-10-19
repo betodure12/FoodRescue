@@ -41,11 +41,12 @@ require_once __DIR__ . '/includes/header.php';
 
                 <form action="login_process.php" method="POST">
                     <?= csrfField() ?>
+                    <?php $prefillEmail = htmlspecialchars(trim($_GET['email'] ?? '')); ?>
                     <div class="mb-3">
                         <label for="email" class="form-label fw-semibold small">Correo Electrónico</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
-                            <input type="email" class="form-control" id="email" name="email" placeholder="nombre@correo.com" required>
+                            <input type="email" class="form-control" id="email" name="email" value="<?= $prefillEmail ?>" placeholder="nombre@correo.com" required>
                         </div>
                     </div>
 
