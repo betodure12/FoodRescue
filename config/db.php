@@ -85,7 +85,7 @@ function getDBConnection(): PDO {
     static $pdo = null;
 
     if ($pdo === null) {
-        $candidateDbs = array_unique([DB_NAME, 'foodrescue_db', 'fodrescue']);
+        $candidateDbs = array_unique([DB_NAME, 'foodrescue_db', 'fodrescue', 'foodrescue', 'FoodRescue']);
         $lastException = null;
 
         $options = [
@@ -101,6 +101,18 @@ function getDBConnection(): PDO {
                 $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
                 // Sincronizar zona horaria de la sesión MySQL con la hora oficial de Paraguay (UTC-3)
                 @$pdo->exec("SET time_zone = '-03:00'");
+
+                // Asegurar automáticamente columnas de geolocalización en la base de datos conectada
+                try {
+                    $uCols = $pdo->query("DESCRIBE usuarios")->fetchAll(PDO::FETCH_COLUMN);
+                    if (!in_array('latitud', $uCols)) $pdo->exec("ALTER TABLE usuarios ADD COLUMN `latitud` DECIMAL(10,7) DEFAULT NULL");
+                    if (!in_array('longitud', $uCols)) $pdo->exec("ALTER TABLE usuarios ADD COLUMN `longitud` DECIMAL(10,7) DEFAULT NULL");
+
+                    $pCols = $pdo->query("DESCRIBE productos")->fetchAll(PDO::FETCH_COLUMN);
+                    if (!in_array('latitud', $pCols)) $pdo->exec("ALTER TABLE productos ADD COLUMN `latitud` DECIMAL(10,7) DEFAULT NULL");
+                    if (!in_array('longitud', $pCols)) $pdo->exec("ALTER TABLE productos ADD COLUMN `longitud` DECIMAL(10,7) DEFAULT NULL");
+                } catch (Throwable $migErr) {}
+
                 break;
             } catch (PDOException $e) {
                 $lastException = $e;
