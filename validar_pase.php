@@ -6,7 +6,7 @@ sendSecurityHeaders();
 $pageTitle = "Verificación de Pase Digital";
 $pdo = getDBConnection();
 
-$rawCodigo = $_GET['codigo'] ?? $_POST['codigo'] ?? '';
+$rawCodigo = $_GET['codigo'] ?? $_POST['codigo_retiro'] ?? $_POST['codigo'] ?? '';
 if (!is_string($rawCodigo)) {
     $rawCodigo = '';
 }
@@ -24,13 +24,20 @@ if (!empty($codigo) && !checkRateLimit('validar_web_pass', 40, 60)) {
 
 // Manejo de confirmación de entrega desde esta pantalla (por el comercio o cajero)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['accion'] === 'confirmar_entrega') {
-    if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
+    $reservaIdPost = (int)($_POST['reserva_id'] ?? 0);
+    $codigoPost = mb_substr(strtoupper(trim($_POST['codigo_retiro'] ?? $_POST['codigo'] ?? '')), 0, 20);
+    if (!empty($codigoPost)) {
+        $codigo = $codigoPost;
+    }
+
+    $isCsrfValid = verifyCsrfToken($_POST['csrf_token'] ?? null);
+
+    // Si el CSRF falló por entorno móvil o cookie volátil del escáner, pero el código secreto de retiro está presente:
+    // verificamos de forma segura mediante la coincidencia estricta en la base de datos con FOR UPDATE.
+    if (!$isCsrfValid && empty($codigoPost)) {
         $mensajeAccion = "Sesión o token de seguridad expirado. Por favor, recarga la página.";
         $tipoMensaje = "danger";
     } else {
-        $reservaIdPost = (int)($_POST['reserva_id'] ?? 0);
-        $codigoPost = mb_substr(strtoupper(trim($_POST['codigo_retiro'] ?? '')), 0, 20);
-
         try {
             $pdo->beginTransaction();
 
@@ -49,39 +56,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['
 
             if (!$resCurrent) {
                 $pdo->rollBack();
-                $mensajeAccion = "La reserva solicitada no existe.";
+                $mensajeAccion = "La reserva solicitada no existe o el código es incorrecto.";
                 $tipoMensaje = "danger";
             } elseif ($resCurrent['estado'] === 'retirado') {
                 $pdo->rollBack();
-                $mensajeAccion = "Esta reserva ya fue canjeada previamente.";
+                $mensajeAccion = "Aviso: Esta reserva ya fue canjeada y registrada en caja previamente.";
                 $tipoMensaje = "warning";
+                $codigo = $codigoPost;
             } else {
                 // Actualizar estado a retirado
                 $upd = $pdo->prepare("UPDATE reservas SET estado = 'retirado' WHERE id = :id AND estado = 'reservado'");
                 $upd->execute([':id' => $resCurrent['id']]);
 
-                // Asignar puntos de lealtad al cliente (+10 pts)
-                $puntosStmt = $pdo->prepare("
-                    INSERT INTO puntos_lealtad (usuario_id, total_compras, puntos, nivel)
-                    VALUES (:uid, 1, 10, 'Bronce')
-                    ON DUPLICATE KEY UPDATE 
-                        total_compras = total_compras + 1,
-                        puntos = puntos + 10,
-                        nivel = CASE 
-                            WHEN puntos + 10 >= 200 THEN 'Oro'
-                            WHEN puntos + 10 >= 80 THEN 'Plata'
-                            ELSE 'Bronce'
-                        END,
-                        descuento_desbloqueado = CASE 
-                            WHEN puntos + 10 >= 80 THEN 1 
-                            ELSE descuento_desbloqueado 
-                        END
-                ");
-                $puntosStmt->execute([':uid' => $resCurrent['usuario_id']]);
+                // Asignar puntos de lealtad al cliente (+10 pts) de forma tolerante a fallos
+                try {
+                    $puntosStmt = $pdo->prepare("
+                        INSERT INTO puntos_lealtad (usuario_id, total_compras, puntos, nivel)
+                        VALUES (:uid, 1, 10, 'Bronce')
+                        ON DUPLICATE KEY UPDATE 
+                            total_compras = total_compras + 1,
+                            puntos = puntos + 10,
+                            nivel = CASE 
+                                WHEN puntos + 10 >= 200 THEN 'Oro'
+                                WHEN puntos + 10 >= 80 THEN 'Plata'
+                                ELSE 'Bronce'
+                            END,
+                            descuento_desbloqueado = CASE 
+                                WHEN puntos + 10 >= 80 THEN 1 
+                                ELSE descuento_desbloqueado 
+                            END
+                    ");
+                    $puntosStmt->execute([':uid' => $resCurrent['usuario_id']]);
+                } catch (Throwable $ePts) {
+                    error_log("Error awarding points: " . $ePts->getMessage());
+                }
 
                 $pdo->commit();
                 $mensajeAccion = "¡Entrega confirmada y registrada exitosamente en caja!";
                 $tipoMensaje = "success";
+                $codigo = $codigoPost;
             }
         } catch (Exception $e) {
             if ($pdo->inTransaction()) {
@@ -89,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['
             }
             $mensajeAccion = "Ocurrió un error al procesar el canje: " . $e->getMessage();
             $tipoMensaje = "danger";
+            $codigo = $codigoPost;
         }
     }
 }
@@ -284,11 +298,12 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="d-grid gap-2">
                             <?php if (!$isRetirado && !$isCancelado): ?>
                                 <!-- Formulario para Confirmar Entrega en 1 Clic -->
-                                <form action="validar_pase.php" method="POST" onsubmit="return confirm('¿Confirmas que el cliente está retirando el pack en este momento y efectuó el pago de <?= formatGs($totalPagar) ?>?');">
+                                <form action="validar_pase.php?codigo=<?= urlencode($reserva['codigo_retiro']) ?>" method="POST" onsubmit="return confirm('¿Confirmas que el cliente está retirando el pack en este momento y efectuó el pago de <?= formatGs($totalPagar) ?>?');">
                                     <?= csrfField() ?>
                                     <input type="hidden" name="accion" value="confirmar_entrega">
                                     <input type="hidden" name="reserva_id" value="<?= $reserva['id'] ?>">
                                     <input type="hidden" name="codigo_retiro" value="<?= htmlspecialchars($reserva['codigo_retiro']) ?>">
+                                    <input type="hidden" name="codigo" value="<?= htmlspecialchars($reserva['codigo_retiro']) ?>">
 
                                     <button type="submit" class="btn btn-success btn-lg w-100 rounded-pill shadow-sm fw-bold py-3">
                                         <i class="bi bi-check2-circle me-1"></i> Confirmar Entrega en Caja

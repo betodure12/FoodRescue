@@ -63,7 +63,7 @@ try {
     // Regla de Negocio: Un comercio no puede auto-reservar sus propios productos
     if ((int)$producto['comercio_id'] === $usuarioId) {
         $pdo->rollBack();
-        $_SESSION['flash_error'] = "No puedes reservar tus propias publicaciones comerciales.";
+        $_SESSION['flash_error'] = "Aviso: Como eres el comercio creador de este producto, no puedes auto-reservar tu propia publicación. Utiliza una cuenta de cliente para reservar.";
         header("Location: index.php");
         exit;
     }
@@ -100,32 +100,36 @@ try {
         ':id'     => $productoId
     ]);
 
-    // Actualizar Puntos de Lealtad del Cliente (10 puntos por cada reserva realizada)
-    $puntosGanados = 10 * $cantidad;
-    $puntosStmt = $pdo->prepare("
-        INSERT INTO puntos_lealtad (usuario_id, total_compras, puntos, descuento_desbloqueado, nivel)
-        VALUES (:usuario_id, 1, :puntos, 0, 'Bronce')
-        ON DUPLICATE KEY UPDATE 
-            total_compras = total_compras + 1,
-            puntos = puntos + :puntos_sum,
-            nivel = CASE 
-                WHEN (puntos + :puntos_calc) >= 300 THEN 'Oro'
-                WHEN (puntos + :puntos_calc2) >= 100 THEN 'Plata'
-                ELSE 'Bronce'
-            END,
-            descuento_desbloqueado = CASE 
-                WHEN (puntos + :puntos_calc3) >= 100 THEN 1 
-                ELSE 0 
-            END
-    ");
-    $puntosStmt->execute([
-        ':usuario_id'    => $usuarioId,
-        ':puntos'        => $puntosGanados,
-        ':puntos_sum'    => $puntosGanados,
-        ':puntos_calc'   => $puntosGanados,
-        ':puntos_calc2'  => $puntosGanados,
-        ':puntos_calc3'  => $puntosGanados
-    ]);
+    // Actualizar Puntos de Lealtad del Cliente (10 puntos por cada reserva realizada) de forma defensiva
+    try {
+        $puntosGanados = 10 * $cantidad;
+        $puntosStmt = $pdo->prepare("
+            INSERT INTO puntos_lealtad (usuario_id, total_compras, puntos, descuento_desbloqueado, nivel)
+            VALUES (:usuario_id, 1, :puntos, 0, 'Bronce')
+            ON DUPLICATE KEY UPDATE 
+                total_compras = total_compras + 1,
+                puntos = puntos + :puntos_sum,
+                nivel = CASE 
+                    WHEN (puntos + :puntos_calc) >= 300 THEN 'Oro'
+                    WHEN (puntos + :puntos_calc2) >= 100 THEN 'Plata'
+                    ELSE 'Bronce'
+                END,
+                descuento_desbloqueado = CASE 
+                    WHEN (puntos + :puntos_calc3) >= 100 THEN 1 
+                    ELSE 0 
+                END
+        ");
+        $puntosStmt->execute([
+            ':usuario_id'    => $usuarioId,
+            ':puntos'        => $puntosGanados,
+            ':puntos_sum'    => $puntosGanados,
+            ':puntos_calc'   => $puntosGanados,
+            ':puntos_calc2'  => $puntosGanados,
+            ':puntos_calc3'  => $puntosGanados
+        ]);
+    } catch (Throwable $ePts) {
+        error_log("Error awarding points in reserve_process: " . $ePts->getMessage());
+    }
 
     $pdo->commit();
 
@@ -139,7 +143,7 @@ try {
         $pdo->rollBack();
     }
     error_log("Reservation error: " . $e->getMessage());
-    $_SESSION['flash_error'] = "Ocurrió un error inesperado al procesar la reserva. Inténtalo de nuevo.";
+    $_SESSION['flash_error'] = "Ocurrió un error inesperado al procesar la reserva: " . htmlspecialchars($e->getMessage());
     header("Location: index.php");
     exit;
 }
