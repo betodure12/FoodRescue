@@ -151,9 +151,16 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </form>
 
-                    <a href="index.php" class="btn btn-outline-secondary rounded-pill btn-sm">
-                        <i class="bi bi-arrow-left me-1"></i> Volver al Inicio
-                    </a>
+                    <div class="d-flex flex-wrap gap-2 justify-content-center">
+                        <a href="index.php" class="btn btn-outline-secondary rounded-pill btn-sm px-3">
+                            <i class="bi bi-arrow-left me-1"></i> Ir al Menú Principal
+                        </a>
+                        <?php if (!$isLoggedIn): ?>
+                            <a href="login.php" class="btn btn-outline-success rounded-pill btn-sm px-3 fw-medium">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión
+                            </a>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
             <?php else: 
@@ -288,9 +295,16 @@ require_once __DIR__ . '/includes/header.php';
                                 </a>
                             <?php endif; ?>
 
-                            <a href="index.php" class="btn btn-light rounded-pill text-muted small mt-1">
-                                <i class="bi bi-house me-1"></i> Volver a la Plataforma
-                            </a>
+                            <div class="d-flex flex-wrap gap-2 justify-content-center mt-2">
+                                <a href="index.php" class="btn btn-light rounded-pill text-muted small px-3">
+                                    <i class="bi bi-house me-1"></i> Ir al Menú Principal
+                                </a>
+                                <?php if (!$isLoggedIn): ?>
+                                    <a href="login.php" class="btn btn-outline-success rounded-pill small px-3 fw-medium">
+                                        <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión
+                                    </a>
+                                <?php endif; ?>
+                            </div>
                         </div>
 
                     </div>
