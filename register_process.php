@@ -22,14 +22,23 @@ if (!checkRateLimit($rateKey, 4, 120)) {
     exit;
 }
 
+// Validar que todos los campos recibidos sean cadenas de texto (Mitigación Array Injection)
+foreach (['nombre', 'email', 'telefono', 'direccion', 'rol', 'password', 'password_confirm'] as $field) {
+    if (isset($_POST[$field]) && !is_string($_POST[$field])) {
+        $_SESSION['flash_error'] = "Petición con formato alterado o no válido.";
+        header("Location: register.php");
+        exit;
+    }
+}
+
 // Obtener, desinfectar y truncar datos para prevenir desbordamientos o inyecciones
 $nombre = mb_substr(strip_tags(trim($_POST['nombre'] ?? '')), 0, 100);
-$email = mb_strtolower(trim($_POST['email'] ?? ''));
+$email = mb_substr(mb_strtolower(trim($_POST['email'] ?? '')), 0, 150);
 $telefono = mb_substr(strip_tags(trim($_POST['telefono'] ?? '')), 0, 30);
 $direccion = mb_substr(strip_tags(trim($_POST['direccion'] ?? '')), 0, 200);
 $rol = trim($_POST['rol'] ?? 'cliente');
-$password = $_POST['password'] ?? '';
-$password_confirm = $_POST['password_confirm'] ?? '';
+$password = mb_substr($_POST['password'] ?? '', 0, 128);
+$password_confirm = mb_substr($_POST['password_confirm'] ?? '', 0, 128);
 
 // Validaciones
 if (empty($nombre) || empty($email) || empty($password)) {

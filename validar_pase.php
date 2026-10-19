@@ -6,9 +6,21 @@ sendSecurityHeaders();
 $pageTitle = "Verificación de Pase Digital";
 $pdo = getDBConnection();
 
-$codigo = mb_substr(strtoupper(trim($_GET['codigo'] ?? $_POST['codigo'] ?? '')), 0, 20);
+$rawCodigo = $_GET['codigo'] ?? $_POST['codigo'] ?? '';
+if (!is_string($rawCodigo)) {
+    $rawCodigo = '';
+}
+$codigo = mb_substr(strtoupper(trim($rawCodigo)), 0, 20);
 $mensajeAccion = null;
 $tipoMensaje = null;
+
+// Mitigación de Fuerza Bruta / Ataques de diccionario sobre códigos (Rate limit 40/min por IP)
+if (!empty($codigo) && !checkRateLimit('validar_web_pass', 40, 60)) {
+    $remaining = getRateLimitRemainingSeconds('validar_web_pass');
+    $mensajeAccion = "Demasiadas consultas de validación continuas. Acceso pausado por {$remaining} segundos para proteger el sistema.";
+    $tipoMensaje = "danger";
+    $codigo = '';
+}
 
 // Manejo de confirmación de entrega desde esta pantalla (por el comercio o cajero)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['accion'] === 'confirmar_entrega') {

@@ -3,6 +3,12 @@
  * FoodRescue - Conexión a la Base de Datos con PDO & Módulo de Seguridad Defensiva
  */
 
+// Desactivar visualización pública de errores para mitigar fuga de información (OWASP A05:2021)
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+error_reporting(E_ALL);
+ini_set('log_errors', '1');
+
 // Configuración de credenciales de base de datos con soporte para Nube (Env vars) y Local
 define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
 define('DB_PORT', getenv('DB_PORT') ?: '3306');

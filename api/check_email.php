@@ -15,8 +15,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../config/db.php';
+sendSecurityHeaders();
+
+// Protección contra ataques de enumeración y DoS (Rate Limit 60 peticiones/min por IP)
+if (!checkRateLimit('api_check_email', 60, 60)) {
+    http_response_code(429);
+    echo json_encode([
+        'status' => 'error',
+        'code' => 429,
+        'message' => 'Límite de solicitudes superado (HTTP 429). Espera un minuto.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 $rawEmail = $_GET['email'] ?? $_POST['email'] ?? '';
+if (!is_string($rawEmail)) {
+    $rawEmail = '';
+}
 $email = mb_strtolower(trim($rawEmail));
 
 if (empty($email)) {

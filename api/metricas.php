@@ -30,6 +30,17 @@ if (!in_array($method, ['GET', 'HEAD'])) {
     exit;
 }
 
+// Mitigación de saturación / DoS en API (Rate limit 60 peticiones/min)
+if (!checkRateLimit('api_metricas', 60, 60)) {
+    http_response_code(429);
+    echo json_encode([
+        'status' => 'error',
+        'code' => 429,
+        'message' => 'Límite de solicitudes superado (HTTP 429). Espera un minuto.'
+    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    exit;
+}
+
 try {
     $pdo = getDBConnection();
 

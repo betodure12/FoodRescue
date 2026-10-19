@@ -13,8 +13,17 @@ if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
     exit;
 }
 
-$email = mb_strtolower(trim($_POST['email'] ?? ''));
-$password = $_POST['password'] ?? '';
+$rawEmail = $_POST['email'] ?? '';
+$rawPassword = $_POST['password'] ?? '';
+
+if (!is_string($rawEmail) || !is_string($rawPassword)) {
+    $_SESSION['flash_error'] = "Parámetros de acceso no válidos.";
+    header("Location: login.php");
+    exit;
+}
+
+$email = mb_substr(mb_strtolower(trim($rawEmail)), 0, 150);
+$password = mb_substr($rawPassword, 0, 128);
 
 if (empty($email) || empty($password)) {
     $_SESSION['flash_error'] = "Por favor ingresa tu correo y contraseña.";
