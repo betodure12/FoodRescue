@@ -204,46 +204,75 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     <?php endif; ?>
 
-    <!-- Banner Interactivo de Bienvenida a FoodRescue -->
+    <!-- Banner Interactivo de Bienvenida Premium a FoodRescue -->
     <?php
     $horaPyActual = (int)date('H');
     if ($horaPyActual >= 5 && $horaPyActual < 12) {
         $saludoTiempo = "¡Buenos días!";
+        $iconoTiempo = "bi-sun-fill text-warning";
     } elseif ($horaPyActual >= 12 && $horaPyActual < 19) {
         $saludoTiempo = "¡Buenas tardes!";
+        $iconoTiempo = "bi-brightness-high-fill text-warning";
     } else {
         $saludoTiempo = "¡Buenas noches!";
+        $iconoTiempo = "bi-moon-stars-fill text-info";
     }
     ?>
-    <div class="alert alert-light border-0 shadow-sm rounded-4 p-3 mb-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 position-relative overflow-hidden" 
-         style="background: linear-gradient(135deg, rgba(6, 78, 59, 0.08) 0%, rgba(16, 185, 129, 0.04) 100%); border-left: 5px solid #059669 !important;">
-        <div class="d-flex align-items-center gap-3">
-            <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success text-white flex-shrink-0" style="width: 44px; height: 44px;">
-                <i class="bi bi-sparkles fs-4"></i>
-            </div>
-            <div>
-                <h6 class="fw-bold text-dark mb-0 d-flex flex-wrap align-items-center gap-2">
-                    <span><?= $saludoTiempo ?> Bienvenido a FoodRescue</span>
-                    <span class="badge bg-success-subtle text-success border border-success-subtle small fw-semibold rounded-pill">Itauguá Conectada</span>
-                </h6>
-                <p class="text-muted small mb-0 mt-1">
-                    Salva comida deliciosa del día con hasta <strong>70% de descuento</strong>, apoya a comercios gastronómicos locales y combate el desperdicio.
+    <div class="card fr-card border-0 shadow-sm rounded-4 p-4 p-md-5 mb-5 position-relative overflow-hidden" 
+         style="background: linear-gradient(135deg, rgba(6, 78, 59, 0.08) 0%, rgba(16, 185, 129, 0.05) 50%, rgba(255, 255, 255, 0.95) 100%); border-left: 6px solid #059669 !important;">
+        <div class="row align-items-center g-4">
+            <div class="col-12 col-lg-8">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill fw-semibold small">
+                        <i class="bi bi-geo-alt-fill me-1 text-danger"></i> Itauguá, Central &middot; Triple Impacto ESG
+                    </span>
+                    <span class="badge bg-warning-subtle text-dark border border-warning-subtle px-2 py-1 rounded-pill fw-bold small">
+                        <i class="bi <?= $iconoTiempo ?> me-1"></i> <?= $saludoTiempo ?>
+                    </span>
+                </div>
+
+                <h2 class="fw-extrabold text-dark display-6 mb-2" style="letter-spacing: -0.5px;">
+                    <?= $saludoTiempo ?> ¡Bienvenido a <span class="text-success">FoodRescue</span>!
+                </h2>
+
+                <p class="text-secondary fs-5 mb-3" style="max-width: 680px; line-height: 1.5;">
+                    La plataforma inteligente para <strong>rescatar comida fresca</strong> de panaderías, cafeterías y confiterías de Itauguá con hasta <strong>70% de descuento</strong>, combatiendo el desperdicio y apoyando al comercio gastronómico local.
                 </p>
+
+                <div class="d-flex flex-wrap gap-3 small text-muted mb-0">
+                    <span class="d-flex align-items-center"><i class="bi bi-check2-circle text-success fs-5 me-1"></i> Packs del día garantizados</span>
+                    <span class="d-flex align-items-center"><i class="bi bi-qr-code text-primary fs-5 me-1"></i> Validación instantánea con QR</span>
+                    <span class="d-flex align-items-center"><i class="bi bi-shield-check text-success fs-5 me-1"></i> Plataforma blindada 100%</span>
+                </div>
             </div>
-        </div>
-        <div class="d-flex gap-2 flex-shrink-0">
-            <?php if (!$isLoggedIn): ?>
-                <a href="register.php" class="btn btn-sm btn-fr-primary rounded-pill px-3 shadow-sm">
-                    <i class="bi bi-person-plus-fill me-1"></i> Unirme Gratis
-                </a>
-                <a href="#catalogo" class="btn btn-sm btn-outline-dark rounded-pill px-3">
-                    <i class="bi bi-basket me-1"></i> Ver Packs
-                </a>
-            <?php else: ?>
-                <span class="badge bg-white text-dark border px-3 py-2 rounded-pill d-flex align-items-center gap-1 shadow-xs small">
-                    <i class="bi bi-shield-check text-success"></i> Acceso Seguro &middot; <strong><?= htmlspecialchars($userName) ?></strong>
-                </span>
-            <?php endif; ?>
+
+            <div class="col-12 col-lg-4 text-lg-end">
+                <div class="d-inline-flex flex-column gap-2 w-100" style="max-width: 280px;">
+                    <?php if (!$isLoggedIn): ?>
+                        <a href="register.php" class="btn btn-fr-primary btn-lg rounded-pill py-3 px-4 shadow fw-bold d-flex align-items-center justify-content-center">
+                            <i class="bi bi-person-plus-fill me-2 fs-5"></i> Unirme a FoodRescue
+                        </a>
+                        <a href="#catalogo" class="btn btn-outline-dark rounded-pill py-2 px-3 fw-semibold d-flex align-items-center justify-content-center">
+                            <i class="bi bi-basket me-2"></i> Explorar Packs de Hoy
+                        </a>
+                    <?php else: ?>
+                        <div class="card bg-white border rounded-4 p-3 shadow-xs text-start">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <div class="bg-success-subtle text-success p-2 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                    <i class="bi bi-person-check-fill fs-5"></i>
+                                </div>
+                                <div>
+                                    <small class="text-muted d-block" style="font-size: 0.72rem;">Sesión Activa & Segura</small>
+                                    <strong class="text-dark"><?= htmlspecialchars($userName) ?></strong>
+                                </div>
+                            </div>
+                            <span class="badge bg-<?= $userRole === 'comercio' ? 'warning text-dark' : 'success' ?> rounded-pill small w-100 py-1 mt-1">
+                                Perfil: <?= ucfirst($userRole) ?>
+                            </span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
         </div>
     </div>
 
