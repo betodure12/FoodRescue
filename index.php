@@ -733,9 +733,9 @@ require_once __DIR__ . '/includes/header.php';
                 <button class="btn btn-outline-dark rounded-pill btn-sm px-3" data-bs-toggle="modal" data-bs-target="#modalPitchDeck">
                     <i class="bi bi-file-earmark-slides-fill text-warning me-1"></i> Pitch Deck
                 </button>
-                <button class="btn btn-fr-primary rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#modalPublicar">
+                <a href="#form-publicar" class="btn btn-fr-primary rounded-pill shadow-sm">
                     <i class="bi bi-plus-circle-fill me-1"></i> Publicar Excedente
-                </button>
+                </a>
             </div>
         </div>
 
@@ -843,7 +843,7 @@ require_once __DIR__ . '/includes/header.php';
         <div class="row g-4">
             <!-- Formulario Rápido de Publicación (En Desktop visible, en móvil accesible) -->
             <div class="col-12 col-lg-5">
-                <div class="card fr-card border-0 p-4">
+                <div class="card fr-card border-0 p-4" id="form-publicar">
                     <h5 class="fw-bold mb-3 text-dark d-flex align-items-center">
                         <i class="bi bi-plus-circle text-success me-2"></i> Publicar Excedente del Día
                     </h5>
@@ -968,9 +968,11 @@ require_once __DIR__ . '/includes/header.php';
                                 </tbody>
                             </table>
                         </div>
+                    <?php endif; ?>
+                </div> <!-- Fin de card #mis-productos -->
 
-                        <!-- Modales de Edición de Publicación -->
-                        <?php foreach ($misProductos as $prod): ?>
+                <!-- Modales de Edición de Publicación fuera de la card -->
+                <?php foreach ($misProductos as $prod): ?>
                             <div class="modal fade" id="modalEditProd<?= $prod['id'] ?>" tabindex="-1" aria-labelledby="modalEditLabel<?= $prod['id'] ?>" aria-hidden="true">
                                 <div class="modal-dialog modal-dialog-centered">
                                     <div class="modal-content border-0 rounded-4">
@@ -1044,8 +1046,6 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
                             </div>
                         <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
             </div>
         </div>
 
@@ -1115,7 +1115,7 @@ require_once __DIR__ . '/includes/header.php';
         <!-- ========================================== -->
 
         <!-- Widget de Lealtad e Impacto Ecológico Personal -->
-        <div class="row g-3 mb-4">
+        <div class="row g-3 mb-4" id="mi-huella">
             <div class="col-12 col-lg-6">
                 <div class="card fr-card border-0 p-4 h-100 bg-white">
                     <div class="d-flex align-items-center gap-3">
@@ -1421,9 +1421,10 @@ require_once __DIR__ . '/includes/header.php';
                         </tbody>
                     </table>
                 </div>
+            </div> <!-- Fin de card #mis-reservas -->
 
-                <!-- Modales de Reservas (Calificación y Pase QR) -->
-                <?php foreach ($misReservas as $res): ?>
+            <!-- Modales de Reservas (Calificación y Pase QR) fuera de la card -->
+            <?php foreach ($misReservas as $res): ?>
                     <!-- Modal Calificar Reserva Retirada -->
                     <?php if ($res['estado'] === 'retirado' && empty($res['resena_calificacion'])): ?>
                     <div class="modal fade" id="modalReview<?= $res['id'] ?>" tabindex="-1" aria-labelledby="modalRevLabel<?= $res['id'] ?>" aria-hidden="true">
@@ -1478,14 +1479,24 @@ require_once __DIR__ . '/includes/header.php';
                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body p-4 text-center">
+                                    <?php
+                                    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || ($_SERVER['SERVER_PORT'] ?? 80) == 443) ? 'https' : 'http';
+                                    $hostActual = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                                    $urlValidacionQR = "{$scheme}://{$hostActual}/FoodRescue/validar_pase.php?codigo=" . urlencode($res['codigo_retiro']);
+                                    ?>
                                     <div class="p-3 bg-white rounded-4 mb-3 border d-inline-flex align-items-center justify-content-center shadow-sm">
-                                        <div id="qrContainer_<?= $res['id'] ?>" class="qr-canvas-holder" data-qr-code="<?= htmlspecialchars($res['codigo_retiro']) ?>" style="width: 170px; height: 170px;"></div>
+                                        <div id="qrContainer_<?= $res['id'] ?>" class="qr-canvas-holder" data-qr-code="<?= htmlspecialchars($urlValidacionQR) ?>" style="width: 170px; height: 170px;"></div>
                                     </div>
 
                                     <div class="mb-3">
                                         <span class="text-muted small text-uppercase tracking-wider d-block">Código Alfanumérico de Canje</span>
                                         <div class="fs-2 fw-extrabold font-monospace text-dark tracking-wide bg-warning-subtle py-1 px-3 rounded-3 d-inline-block border border-warning my-1">
                                             <?= htmlspecialchars($res['codigo_retiro']) ?>
+                                        </div>
+                                        <div class="mt-1">
+                                            <a href="<?= htmlspecialchars($urlValidacionQR) ?>" target="_blank" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold shadow-sm">
+                                                <i class="bi bi-box-arrow-up-right me-1"></i> Abrir Verificación en Vivo / Simular Escaneo
+                                            </a>
                                         </div>
                                     </div>
 
@@ -1539,133 +1550,9 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
                 <?php endforeach; ?>
-            </div>
         <?php endif; ?>
 
     <?php endif; ?>
-
-    <!-- SECCIÓN API REST & INTEGRACIONES EXTERNAS (Criterio Whiteboard: Uso de API - 10 pts) -->
-    <section id="ecosistema-api" class="my-5 pt-3">
-        <div class="card border-0 rounded-4 shadow-sm overflow-hidden" style="background: linear-gradient(135deg, #09261e 0%, #064e3b 100%); color: #fff;">
-            <div class="card-body p-4 p-md-5">
-                <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-                    <div>
-                        <span class="badge bg-warning text-dark fw-bold px-3 py-2 rounded-pill mb-2">
-                            <i class="bi bi-braces-asterisk me-1"></i> ARQUITECTURA DE APIS & CONECTIVIDAD
-                        </span>
-                        <h3 class="fw-bold text-white mb-1">Ecosistema API REST & Servicios Conectados</h3>
-                        <p class="text-white-50 mb-0 small">
-                            FoodRescue opera con arquitectura desacoplada: expone endpoints REST JSON nativos e integra APIs de cartografía y mensajería móvil.
-                        </p>
-                    </div>
-                    <div>
-                        <span class="badge bg-white text-success fw-bold px-3 py-2 rounded-pill shadow-sm">
-                            <i class="bi bi-check-circle-fill me-1"></i> RESTful · JSON UTF-8 · CORS Habilitado
-                        </span>
-                    </div>
-                </div>
-
-                <div class="row g-4">
-                    <!-- Endpoints REST Propios (B2B, Mobile & POS) -->
-                    <div class="col-lg-6">
-                        <h6 class="fw-bold text-warning text-uppercase small mb-3">
-                            <i class="bi bi-hdd-network-fill me-1"></i> Endpoints Propios de la Plataforma
-                        </h6>
-                        <div class="d-flex flex-column gap-3">
-                            <!-- Endpoint 1 -->
-                            <div class="p-3 rounded-3" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div>
-                                        <span class="badge bg-success font-monospace me-2">GET</span>
-                                        <code class="text-white fw-bold">/api/productos.php</code>
-                                    </div>
-                                    <a href="api/productos.php" target="_blank" class="btn btn-sm btn-outline-warning rounded-pill px-3 py-1">
-                                        <i class="bi bi-box-arrow-up-right me-1"></i> Probar JSON
-                                    </a>
-                                </div>
-                                <p class="text-white-50 small mb-0">
-                                    Catálogo en tiempo real de packs excedentes disponibles, precios con descuento, coordenadas GPS del comercio en Itauguá y métricas de impacto ambiental.
-                                </p>
-                            </div>
-
-                            <!-- Endpoint 2 -->
-                            <div class="p-3 rounded-3" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div>
-                                        <span class="badge bg-success font-monospace me-2">GET</span>
-                                        <code class="text-white fw-bold">/api/metricas.php</code>
-                                    </div>
-                                    <a href="api/metricas.php" target="_blank" class="btn btn-sm btn-outline-warning rounded-pill px-3 py-1">
-                                        <i class="bi bi-box-arrow-up-right me-1"></i> Probar JSON
-                                    </a>
-                                </div>
-                                <p class="text-white-50 small mb-0">
-                                    Indicadores ESG en vivo (total packs rescatados, kg comida salvada, CO₂e neutralizado, ahorro acumulado en ₲ y árboles equivalentes) con alineación a ODS 2, 12 y 13.
-                                </p>
-                            </div>
-
-                            <!-- Endpoint 3 -->
-                            <div class="p-3 rounded-3" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div>
-                                        <span class="badge bg-info text-dark font-monospace me-2">GET / POST</span>
-                                        <code class="text-white fw-bold">/api/validar.php?codigo=FR-559B6</code>
-                                    </div>
-                                    <a href="api/validar.php?codigo=FR-559B6" target="_blank" class="btn btn-sm btn-outline-warning rounded-pill px-3 py-1">
-                                        <i class="bi bi-box-arrow-up-right me-1"></i> Probar JSON
-                                    </a>
-                                </div>
-                                <p class="text-white-50 small mb-0">
-                                    Validación de pase de retiro para sistemas de Punto de Venta (POS) y lectores de caja de los comercios asociados.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- APIs Externas Integradas -->
-                    <div class="col-lg-6">
-                        <h6 class="fw-bold text-warning text-uppercase small mb-3">
-                            <i class="bi bi-cloud-arrow-down-fill me-1"></i> APIs Externas & Tecnologías Integradas
-                        </h6>
-                        <div class="d-flex flex-column gap-3">
-                            <!-- API Externa 1 -->
-                            <div class="p-3 rounded-3" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);">
-                                <div class="d-flex align-items-center justify-content-between mb-1">
-                                    <div class="fw-bold text-white"><i class="bi bi-geo-alt-fill text-danger me-2"></i> OpenStreetMap Leaflet Tile API</div>
-                                    <span class="badge bg-light text-dark small">Cartografía Geoespacial</span>
-                                </div>
-                                <p class="text-white-50 small mb-0">
-                                    Renderizado vectorial de mapas y pines dinámicos de los comercios en Itauguá sin dependencia de APIs comerciales cerradas.
-                                </p>
-                            </div>
-
-                            <!-- API Externa 2 -->
-                            <div class="p-3 rounded-3" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);">
-                                <div class="d-flex align-items-center justify-content-between mb-1">
-                                    <div class="fw-bold text-white"><i class="bi bi-whatsapp text-success me-2"></i> WhatsApp Click-to-Chat API</div>
-                                    <span class="badge bg-light text-dark small">Mensajería Móvil</span>
-                                </div>
-                                <p class="text-white-50 small mb-0">
-                                    Integración directa con <code>api.whatsapp.com/send</code> para que el cliente comparta su pase digital de retiro con un solo toque.
-                                </p>
-                            </div>
-
-                            <!-- API Externa 3 -->
-                            <div class="p-3 rounded-3" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);">
-                                <div class="d-flex align-items-center justify-content-between mb-1">
-                                    <div class="fw-bold text-white"><i class="bi bi-qr-code text-warning me-2"></i> HTML5 Canvas & Offline QR Engine API</div>
-                                    <span class="badge bg-light text-dark small">Renderizado Gráfico</span>
-                                </div>
-                                <p class="text-white-50 small mb-0">
-                                    Generación autónoma y descarga de pase digital en PNG a través del Canvas API de HTML5, garantizando canjes incluso sin internet en el local.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
 
 </div>
 
@@ -1748,9 +1635,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Centrado en Itauguá, Departamento Central, Paraguay
         const map = L.map(containerId).setView([-25.3850, -57.3400], 14);
 
-        // Capa de mapas moderna y clara (CartoDB Positron / OSM)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        // Capa de mapas OpenStreetMap (100% abierta y sin API key requerida)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
             maxZoom: 19
         }).addTo(map);
 

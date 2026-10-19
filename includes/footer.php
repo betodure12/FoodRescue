@@ -450,7 +450,7 @@
         <span>Pitch</span>
     </a>
     <?php if (isset($_SESSION['usuario_id']) && ($_SESSION['usuario_rol'] ?? '') === 'comercio'): ?>
-        <a href="#modalPublicar" data-bs-toggle="modal" class="mobile-nav-item text-success fw-bold">
+        <a href="index.php#form-publicar" class="mobile-nav-item text-success fw-bold">
             <i class="bi bi-plus-circle-fill fs-3 text-success"></i>
             <span>Publicar</span>
         </a>

@@ -76,31 +76,41 @@ $userName = $_SESSION['usuario_nombre'] ?? null;
                 </li>
                 <?php if ($isLoggedIn && $userRole === 'comercio'): ?>
                     <li class="nav-item">
-                        <a class="nav-link fw-medium" href="index.php#mis-productos"><i class="bi bi-tags me-1"></i> Publicaciones</a>
+                        <a class="nav-link fw-medium" href="index.php#form-publicar"><i class="bi bi-plus-circle me-1"></i> Publicar</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link fw-medium" href="index.php#validador-caja"><i class="bi bi-qr-code-scan me-1"></i> Validador</a>
+                        <a class="nav-link fw-medium" href="index.php#mis-productos"><i class="bi bi-tags me-1"></i> Mis Publicaciones</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-medium" href="index.php#validador-caja"><i class="bi bi-qr-code-scan me-1"></i> Validador en Caja</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link fw-medium" href="index.php#mis-reservas"><i class="bi bi-receipt me-1"></i> Reservas</a>
                     </li>
+                <?php elseif ($isLoggedIn && $userRole === 'cliente'): ?>
+                    <li class="nav-item">
+                        <a class="nav-link fw-medium" href="index.php#catalogo"><i class="bi bi-basket me-1"></i> Packs Disponibles</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-medium" href="index.php#mis-reservas"><i class="bi bi-ticket-perforated me-1"></i> Mis Reservas & Pases</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link fw-medium" href="index.php#mi-huella"><i class="bi bi-award me-1"></i> Mi Nivel & Huella</a>
+                    </li>
                 <?php else: ?>
                     <li class="nav-item">
-                        <a class="nav-link fw-medium" href="index.php#impacto-esg"><i class="bi bi-graph-up-arrow me-1"></i> Impacto ESG</a>
+                        <a class="nav-link fw-medium" href="index.php#catalogo"><i class="bi bi-basket me-1"></i> Packs del Día</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link fw-medium" href="index.php#como-funciona"><i class="bi bi-arrow-repeat me-1"></i> Cómo Funciona</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link fw-medium" href="index.php#calculadora-impacto"><i class="bi bi-calculator me-1"></i> Calculadora</a>
+                        <a class="nav-link fw-medium" href="index.php#impacto-esg"><i class="bi bi-graph-up-arrow me-1"></i> Impacto ESG</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link fw-medium" href="index.php#catalogo"><i class="bi bi-basket me-1"></i> Packs & Mapa</a>
+                        <a class="nav-link fw-medium" href="index.php#calculadora-impacto"><i class="bi bi-calculator me-1"></i> Calculadora</a>
                     </li>
                 <?php endif; ?>
-                <li class="nav-item">
-                    <a class="nav-link fw-medium" href="index.php#ecosistema-api"><i class="bi bi-braces me-1"></i> APIs REST</a>
-                </li>
             </ul>
 
             <div class="d-flex flex-wrap align-items-center gap-2 mt-3 mt-lg-0 pt-2 pt-lg-0 border-top border-lg-0">
