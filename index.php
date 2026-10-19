@@ -1482,7 +1482,8 @@ require_once __DIR__ . '/includes/header.php';
                                     <?php
                                     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || ($_SERVER['SERVER_PORT'] ?? 80) == 443) ? 'https' : 'http';
                                     $hostActual = $_SERVER['HTTP_HOST'] ?? 'localhost';
-                                    $urlValidacionQR = "{$scheme}://{$hostActual}/FoodRescue/validar_pase.php?codigo=" . urlencode($res['codigo_retiro']);
+                                    $baseDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+                                    $urlValidacionQR = "{$scheme}://{$hostActual}{$baseDir}/validar_pase.php?codigo=" . urlencode($res['codigo_retiro']);
                                     ?>
                                     <div class="p-3 bg-white rounded-4 mb-3 border d-inline-flex align-items-center justify-content-center shadow-sm">
                                         <div id="qrContainer_<?= $res['id'] ?>" class="qr-canvas-holder" data-qr-code="<?= htmlspecialchars($urlValidacionQR) ?>" style="width: 170px; height: 170px;"></div>
@@ -1494,7 +1495,7 @@ require_once __DIR__ . '/includes/header.php';
                                             <?= htmlspecialchars($res['codigo_retiro']) ?>
                                         </div>
                                         <div class="mt-1">
-                                            <a href="<?= htmlspecialchars($urlValidacionQR) ?>" target="_blank" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold shadow-sm">
+                                            <a href="validar_pase.php?codigo=<?= urlencode($res['codigo_retiro']) ?>" target="_blank" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold shadow-sm">
                                                 <i class="bi bi-box-arrow-up-right me-1"></i> Abrir Verificación en Vivo / Simular Escaneo
                                             </a>
                                         </div>
