@@ -8,7 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
-    $_SESSION['flash_error'] = "Petición no válida o token de seguridad expirado (CSRF). Intenta nuevamente.";
+    $_SESSION['flash_error'] = "🛡️ FoodRescue CyberShield: Petición no autorizada (CSRF Token Inválido). ¡Sigue participando! 😉";
     header("Location: login.php");
     exit;
 }
@@ -17,7 +17,7 @@ $rawEmail = $_POST['email'] ?? '';
 $rawPassword = $_POST['password'] ?? '';
 
 if (!is_string($rawEmail) || !is_string($rawPassword)) {
-    $_SESSION['flash_error'] = "Parámetros de acceso no válidos.";
+    $_SESSION['flash_error'] = "🛡️ FoodRescue CyberShield: Formato de petición alterado. ¡Sigue participando! 😉";
     header("Location: login.php");
     exit;
 }
@@ -35,7 +35,7 @@ if (empty($email) || empty($password)) {
 $rateKey = 'login_' . $email . '_' . ($_SERVER['REMOTE_ADDR'] ?? 'ip');
 if (!checkRateLimit($rateKey, 5, 60)) {
     $remaining = getRateLimitRemainingSeconds($rateKey);
-    $_SESSION['flash_error'] = "Demasiados intentos fallidos. Tu acceso está protegido temporalmente. Por favor espera {$remaining} segundos antes de reintentar.";
+    $_SESSION['flash_error'] = "🛡️ FoodRescue CyberShield: Límite de intentos superado. ¡Sigue participando! 😉 Tu acceso está bloqueado preventivamente por {$remaining} segundos.";
     header("Location: login.php");
     exit;
 }

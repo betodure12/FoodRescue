@@ -42,12 +42,13 @@ Options -Indexes -MultiViews
 # 5. Reglas de Filtrado contra Ataques Web (WAF Ligero mediante RewriteEngine)
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /
 
     # Bloquear métodos TRACE y TRACK (Mitigación Cross-Site Tracing / XST)
     RewriteCond %{REQUEST_METHOD} ^(TRACE|TRACK) [NC]
     RewriteRule .* - [F,L]
 
+    # No interceptar bloqueado.php para evitar bucles de redirección
+    RewriteCond %{REQUEST_URI} !bloqueado\.php [NC]
     # Bloquear Directory Traversal (../ o ..\)
     RewriteCond %{QUERY_STRING} (\.\./|\.\.\\) [NC,OR]
     # Bloquear inyecciones PHP y decodificación maliciosa
@@ -56,11 +57,12 @@ Options -Indexes -MultiViews
     RewriteCond %{QUERY_STRING} (union.*select|insert.*into|drop.*table|information_schema|benchmark\() [NC,OR]
     # Bloquear inyección de scripts HTML/XSS en URI
     RewriteCond %{QUERY_STRING} (<script|%3Cscript|<svg|%3Csvg|<iframe|%3Ciframe) [NC]
-    RewriteRule .* - [F,L]
+    RewriteRule ^(.*)$ bloqueado.php?motivo=sqli [R=302,L]
 
     # Bloquear escáneres automáticos de vulnerabilidades conocidos
+    RewriteCond %{REQUEST_URI} !bloqueado\.php [NC]
     RewriteCond %{HTTP_USER_AGENT} (sqlmap|nikto|wpscan|havij|acunetix|nessus) [NC]
-    RewriteRule .* - [F,L]
+    RewriteRule ^(.*)$ bloqueado.php?motivo=bot [R=302,L]
 </IfModule>
 
 # 6. Inyección de Cabeceras HTTP de Seguridad

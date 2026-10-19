@@ -204,6 +204,49 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     <?php endif; ?>
 
+    <!-- Banner Interactivo de Bienvenida a FoodRescue -->
+    <?php
+    $horaPyActual = (int)date('H');
+    if ($horaPyActual >= 5 && $horaPyActual < 12) {
+        $saludoTiempo = "¡Buenos días!";
+    } elseif ($horaPyActual >= 12 && $horaPyActual < 19) {
+        $saludoTiempo = "¡Buenas tardes!";
+    } else {
+        $saludoTiempo = "¡Buenas noches!";
+    }
+    ?>
+    <div class="alert alert-light border-0 shadow-sm rounded-4 p-3 mb-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 position-relative overflow-hidden" 
+         style="background: linear-gradient(135deg, rgba(6, 78, 59, 0.08) 0%, rgba(16, 185, 129, 0.04) 100%); border-left: 5px solid #059669 !important;">
+        <div class="d-flex align-items-center gap-3">
+            <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success text-white flex-shrink-0" style="width: 44px; height: 44px;">
+                <i class="bi bi-sparkles fs-4"></i>
+            </div>
+            <div>
+                <h6 class="fw-bold text-dark mb-0 d-flex flex-wrap align-items-center gap-2">
+                    <span><?= $saludoTiempo ?> Bienvenido a FoodRescue</span>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle small fw-semibold rounded-pill">Itauguá Conectada</span>
+                </h6>
+                <p class="text-muted small mb-0 mt-1">
+                    Salva comida deliciosa del día con hasta <strong>70% de descuento</strong>, apoya a comercios gastronómicos locales y combate el desperdicio.
+                </p>
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+            <?php if (!$isLoggedIn): ?>
+                <a href="register.php" class="btn btn-sm btn-fr-primary rounded-pill px-3 shadow-sm">
+                    <i class="bi bi-person-plus-fill me-1"></i> Unirme Gratis
+                </a>
+                <a href="#catalogo" class="btn btn-sm btn-outline-dark rounded-pill px-3">
+                    <i class="bi bi-basket me-1"></i> Ver Packs
+                </a>
+            <?php else: ?>
+                <span class="badge bg-white text-dark border px-3 py-2 rounded-pill d-flex align-items-center gap-1 shadow-xs small">
+                    <i class="bi bi-shield-check text-success"></i> Acceso Seguro &middot; <strong><?= htmlspecialchars($userName) ?></strong>
+                </span>
+            <?php endif; ?>
+        </div>
+    </div>
+
     <?php if (!$isLoggedIn): ?>
         <!-- ========================================== -->
         <!-- VISTA: VISITANTE NO AUTENTICADO            -->

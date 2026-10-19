@@ -8,7 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
-    $_SESSION['flash_error'] = "Petición no válida o token de seguridad expirado (CSRF). Intenta nuevamente.";
+    $_SESSION['flash_error'] = "🛡️ FoodRescue CyberShield: Petición no autorizada (CSRF Token Inválido). ¡Sigue participando! 😉";
     header("Location: register.php");
     exit;
 }
@@ -17,7 +17,7 @@ if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
 $rateKey = 'register_' . ($_SERVER['REMOTE_ADDR'] ?? 'ip');
 if (!checkRateLimit($rateKey, 4, 120)) {
     $remaining = getRateLimitRemainingSeconds($rateKey);
-    $_SESSION['flash_error'] = "Límite de solicitudes de registro superado. Por favor espera {$remaining} segundos antes de intentar crear otra cuenta.";
+    $_SESSION['flash_error'] = "🛡️ FoodRescue CyberShield: Límite de solicitudes de registro superado. ¡Sigue participando! 😉 Espera {$remaining} segundos.";
     header("Location: register.php");
     exit;
 }
