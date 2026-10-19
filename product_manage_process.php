@@ -112,6 +112,22 @@ try {
             ':cid'             => $comercioId
         ]);
 
+        // Si se enviaron coordenadas en la edición, actualizarlas
+        if (!empty($_POST['latitud']) && !empty($_POST['longitud'])) {
+            $latRaw = (float)$_POST['latitud'];
+            $lngRaw = (float)$_POST['longitud'];
+            if ($latRaw >= -90 && $latRaw <= 90 && $lngRaw >= -180 && $lngRaw <= 180) {
+                try {
+                    $pdo->exec("ALTER TABLE productos ADD COLUMN IF NOT EXISTS `latitud` DECIMAL(10,7) DEFAULT NULL");
+                    $pdo->exec("ALTER TABLE productos ADD COLUMN IF NOT EXISTS `longitud` DECIMAL(10,7) DEFAULT NULL");
+                    $pdo->prepare("UPDATE productos SET latitud = :lat, longitud = :lng WHERE id = :id AND comercio_id = :cid")
+                        ->execute([':lat' => round($latRaw, 7), ':lng' => round($lngRaw, 7), ':id' => $productoId, ':cid' => $comercioId]);
+                } catch (Throwable $t) {
+                    error_log("Error updating coords in edit: " . $t->getMessage());
+                }
+            }
+        }
+
         $safeTitle = htmlspecialchars($titulo, ENT_QUOTES, 'UTF-8');
         $_SESSION['flash_success'] = "¡Publicación '{$safeTitle}' actualizada exitosamente!";
     } else {

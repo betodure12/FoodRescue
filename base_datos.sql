@@ -122,6 +122,8 @@ CREATE TABLE IF NOT EXISTS `usuarios` (
   `rol` enum('cliente','comercio') NOT NULL DEFAULT 'cliente',
   `direccion` varchar(255) DEFAULT NULL,
   `telefono` varchar(30) DEFAULT NULL,
+  `latitud` decimal(10,7) DEFAULT NULL,
+  `longitud` decimal(10,7) DEFAULT NULL,
   `fecha_registro` datetime DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
@@ -129,12 +131,12 @@ CREATE TABLE IF NOT EXISTS `usuarios` (
 
 -- Volcando datos para la tabla foodrescue_db.usuarios: ~5 rows (aproximadamente)
 DELETE FROM `usuarios`;
-INSERT INTO `usuarios` (`id`, `nombre`, `email`, `password`, `rol`, `direccion`, `telefono`, `fecha_registro`) VALUES
-	(1, 'PanaderÝa & ConfiterÝa ÐandutÝ', 'comercio@laespiga.com', '$2y$10$yO.CjvoteUyZQqRaRpB5dO.z0KmSVxEf98t6QakIFExsR363SaJp.', 'comercio', 'Ruta PY02 Km 30 c/ Tte. MartÝnez, Itauguß', '+595 981 456789', '2026-10-05 21:14:02'),
-	(2, 'Lucas Gómez', 'cliente@foodrescue.com', '$2y$10$yO.CjvoteUyZQqRaRpB5dO.z0KmSVxEf98t6QakIFExsR363SaJp.', 'cliente', 'Palma 340 c/ Chile, Asuncion', '+595 982 987654', '2026-10-05 21:14:02'),
-	(3, 'Café & Pastelería San Rafael', 'sanrafael@itaugua.com', '$2y$10$yO.CjvoteUyZQqRaRpB5dO.z0KmSVxEf98t6QakIFExsR363SaJp.', 'comercio', 'Defensores del Chaco c/ Mcal. López, Centro de Itauguá', '+595 983 112233', '2026-10-07 22:50:29'),
-	(4, 'Chipería & Panificados Itauguá Poty', 'itauguapoty@gmail.com', '$2y$10$yO.CjvoteUyZQqRaRpB5dO.z0KmSVxEf98t6QakIFExsR363SaJp.', 'comercio', 'Ruta PY02 Km 28 (Frente a Petropar), Itauguá', '+595 984 556677', '2026-10-07 22:50:29'),
-	(5, 'Frutería y Huertario Central', 'huertacentral@gmail.com', '$2y$10$yO.CjvoteUyZQqRaRpB5dO.z0KmSVxEf98t6QakIFExsR363SaJp.', 'comercio', 'Mercado Municipal de Itauguá, Casilla 14', '+595 985 778899', '2026-10-07 22:50:29');
+INSERT INTO `usuarios` (`id`, `nombre`, `email`, `password`, `rol`, `direccion`, `telefono`, `latitud`, `longitud`, `fecha_registro`) VALUES
+	(1, 'Panadería & Confitería Ñandutí', 'comercio@laespiga.com', '$2y$10$yO.CjvoteUyZQqRaRpB5dO.z0KmSVxEf98t6QakIFExsR363SaJp.', 'comercio', 'Ruta PY02 Km 30 c/ Tte. Martínez, Itauguá', '+595 981 456789', -25.3868000, -57.3395000, '2026-10-05 21:14:02'),
+	(2, 'Lucas Gómez', 'cliente@foodrescue.com', '$2y$10$yO.CjvoteUyZQqRaRpB5dO.z0KmSVxEf98t6QakIFExsR363SaJp.', 'cliente', 'Palma 340 c/ Chile, Asuncion', '+595 982 987654', NULL, NULL, '2026-10-05 21:14:02'),
+	(3, 'Café & Pastelería San Rafael', 'sanrafael@itaugua.com', '$2y$10$yO.CjvoteUyZQqRaRpB5dO.z0KmSVxEf98t6QakIFExsR363SaJp.', 'comercio', 'Defensores del Chaco c/ Mcal. López, Centro de Itauguá', '+595 983 112233', -25.3852000, -57.3421000, '2026-10-07 22:50:29'),
+	(4, 'Chipería & Panificados Itauguá Poty', 'itauguapoty@gmail.com', '$2y$10$yO.CjvoteUyZQqRaRpB5dO.z0KmSVxEf98t6QakIFExsR363SaJp.', 'comercio', 'Ruta PY02 Km 28 (Frente a Petropar), Itauguá', '+595 984 556677', -25.3885000, -57.3368000, '2026-10-07 22:50:29'),
+	(5, 'Frutería y Huertario Central', 'huertacentral@gmail.com', '$2y$10$yO.CjvoteUyZQqRaRpB5dO.z0KmSVxEf98t6QakIFExsR363SaJp.', 'comercio', 'Mercado Municipal de Itauguá, Casilla 14', '+595 985 778899', -25.3832000, -57.3445000, '2026-10-07 22:50:29');
 
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;

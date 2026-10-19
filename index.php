@@ -51,6 +51,11 @@ try {
     $globalStats['total_ahorro'] = (float)($globData['total_ahorro'] ?? 0) + 2450000;
 
     if ($isLoggedIn && $userRole === 'comercio') {
+        // Consultar datos del comercio incluyendo ubicación y coordenadas
+        $comStmt = $pdo->prepare("SELECT id, nombre, email, direccion, telefono, latitud, longitud FROM usuarios WHERE id = :cid LIMIT 1");
+        $comStmt->execute([':cid' => $userId]);
+        $comercioUser = $comStmt->fetch() ?: [];
+
         // Consultar productos del comercio
         $stmt = $pdo->prepare("SELECT * FROM productos WHERE comercio_id = :cid ORDER BY id DESC");
         $stmt->execute([':cid' => $userId]);
@@ -92,6 +97,7 @@ try {
         // Consultar catálogo de productos disponibles con promedio de calificaciones
         $catStmt = $pdo->query("
             SELECT p.*, u.nombre AS comercio_nombre, u.direccion AS comercio_direccion, u.telefono AS comercio_telefono,
+                   COALESCE(p.latitud, u.latitud) AS comercio_latitud, COALESCE(p.longitud, u.longitud) AS comercio_longitud,
                    COALESCE((SELECT AVG(calificacion) FROM resenas WHERE producto_id = p.id), 4.9) AS promedio_estrellas,
                    COALESCE((SELECT COUNT(*) FROM resenas WHERE producto_id = p.id), 14) AS total_resenas
             FROM productos p
@@ -106,10 +112,11 @@ try {
         $ptsStmt->execute([':uid' => $userId]);
         $puntosLealtad = $ptsStmt->fetch();
 
-        // Consultar reservas del cliente con datos de reseña si existe
+        // Consultar reservas del cliente con datos de reseña y coordenadas para GPS
         $misResStmt = $pdo->prepare("
             SELECT r.*, p.titulo AS producto_titulo, p.precio_descuento, p.horario_retiro, 
                    u.nombre AS comercio_nombre, u.direccion AS comercio_direccion,
+                   COALESCE(p.latitud, u.latitud) AS comercio_latitud, COALESCE(p.longitud, u.longitud) AS comercio_longitud,
                    res.calificacion AS resena_calificacion, res.comentario AS resena_comentario
             FROM reservas r
             JOIN productos p ON r.producto_id = p.id
@@ -141,6 +148,7 @@ try {
         // Para visitantes no autenticados, mostrar catálogo público con calificaciones
         $catStmt = $pdo->query("
             SELECT p.*, u.nombre AS comercio_nombre, u.direccion AS comercio_direccion,
+                   COALESCE(p.latitud, u.latitud) AS comercio_latitud, COALESCE(p.longitud, u.longitud) AS comercio_longitud,
                    COALESCE((SELECT AVG(calificacion) FROM resenas WHERE producto_id = p.id), 4.9) AS promedio_estrellas,
                    COALESCE((SELECT COUNT(*) FROM resenas WHERE producto_id = p.id), 14) AS total_resenas
             FROM productos p
@@ -151,16 +159,15 @@ try {
         $catalogoProductos = $catStmt->fetchAll();
     }
 
-    // Preparar puntos geográficos para el mapa interactivo de comercios (Itauguá, Central)
+    // Preparar puntos geográficos REALES para el mapa interactivo de comercios
     $mapPoints = [];
-    $latOffsets = [-25.3870, -25.3835, -25.3820, -25.3852, -25.3940, -25.3890];
-    $lngOffsets = [-57.3360, -57.3415, -57.3550, -57.3440, -57.3320, -57.3480];
+    // Coordenadas por defecto de Itauguá para comercios que aún no han configurado su ubicación
+    $defaultLat = -25.3870;
+    $defaultLng = -57.3400;
 
     foreach ($catalogoProductos as $prod) {
-        $cid = (int)$prod['comercio_id'];
-        $idx = ($cid + (int)$prod['id']) % count($latOffsets);
-        $lat = $latOffsets[$idx] + (((int)$prod['id'] % 3) * 0.0008);
-        $lng = $lngOffsets[$idx] + (((int)$prod['id'] % 4) * 0.0008);
+        $lat = !empty($prod['comercio_latitud']) ? (float)$prod['comercio_latitud'] : $defaultLat + (((int)$prod['comercio_id'] % 5) * 0.002);
+        $lng = !empty($prod['comercio_longitud']) ? (float)$prod['comercio_longitud'] : $defaultLng + (((int)$prod['comercio_id'] % 4) * 0.002);
         $descuentoPorc = round((($prod['precio_original'] - $prod['precio_descuento']) / $prod['precio_original']) * 100);
 
         $mapPoints[] = [
@@ -187,22 +194,7 @@ require_once __DIR__ . '/includes/header.php';
 
 <div class="container pb-5">
 
-    <!-- Mensajes Flash de Notificación -->
-    <?php if (isset($_SESSION['flash_success'])): ?>
-        <div class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
-            <i class="bi bi-check-circle-fill fs-4 me-2"></i>
-            <div><?= $_SESSION['flash_success']; unset($_SESSION['flash_success']); ?></div>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-
-    <?php if (isset($_SESSION['flash_error'])): ?>
-        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
-            <i class="bi bi-exclamation-octagon-fill fs-4 me-2"></i>
-            <div><?= htmlspecialchars($_SESSION['flash_error']); unset($_SESSION['flash_error']); ?></div>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
+    <!-- Mensajes Flash se muestran en header.php (evitar duplicados) -->
 
     <!-- Banner Interactivo de Bienvenida Premium a FoodRescue -->
     <?php
@@ -722,7 +714,14 @@ require_once __DIR__ . '/includes/header.php';
                                 <p class="card-text text-secondary small flex-grow-1"><?= htmlspecialchars($prod['descripcion'] ?: 'Pack sorpresa con delicias del día.') ?></p>
                                 
                                 <div class="bg-light p-2 rounded-3 mb-3 small text-muted">
-                                    <div><i class="bi bi-geo-alt text-danger me-1"></i> <?= htmlspecialchars($prod['comercio_direccion'] ?: 'Consultar dirección') ?></div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-truncate me-1"><i class="bi bi-geo-alt-fill text-danger me-1"></i> <?= htmlspecialchars($prod['comercio_direccion'] ?: 'Itauguá, Central') ?></span>
+                                        <?php if (!empty($prod['comercio_latitud']) && !empty($prod['comercio_longitud'])): ?>
+                                            <a href="https://www.google.com/maps?q=<?= $prod['comercio_latitud'] ?>,<?= $prod['comercio_longitud'] ?>" target="_blank" class="badge bg-white text-primary border border-primary-subtle text-decoration-none fw-semibold py-1 px-2 flex-shrink-0" title="Ver en Google Maps">
+                                                <i class="bi bi-google text-danger me-1"></i>Mapa
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
                                     <div><i class="bi bi-clock text-primary me-1"></i> Retiro: <?= htmlspecialchars($prod['horario_retiro'] ?: 'Fin del día') ?></div>
                                 </div>
 
@@ -962,6 +961,40 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="mb-3">
                             <label class="form-label fw-semibold small">Descripción breve</label>
                             <textarea name="descripcion" class="form-control" rows="2" placeholder="Detalle qué incluye el pack..."></textarea>
+                        </div>
+
+                        <!-- Selector de Ubicación en Mapa (Google Maps / OpenStreetMap) para la Promoción -->
+                        <div class="mb-3 p-3 bg-light rounded-3 border">
+                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                                <label class="form-label fw-bold small text-dark mb-0">
+                                    <i class="bi bi-geo-alt-fill text-danger me-1"></i> Ubicación del Comercio en el Mapa
+                                </label>
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill py-0 px-2 fw-semibold" style="font-size: 0.78rem;" onclick="detectarGPSPublicacion()">
+                                    <i class="bi bi-crosshair me-1"></i> Usar mi GPS
+                                </button>
+                            </div>
+                            <p class="text-muted small mb-2" style="font-size: 0.8rem;">
+                                Haz clic en el mapa, pega un enlace/coordenadas de Google Maps o usa el botón GPS para fijar el local. Los clientes verán este punto para retirar la promoción.
+                            </p>
+                            <!-- Input para Pegar Enlace o Coordenadas de Google Maps -->
+                            <div class="input-group input-group-sm mb-2 shadow-sm">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-google text-danger"></i></span>
+                                <input type="text" id="inputGoogleMapsUrl" class="form-control border-start-0 border-end-0" placeholder="Pegar enlace de Google Maps o coordenadas (-25.3870, -57.3400)" oninput="analizarLinkGoogleMaps(this.value)">
+                                <button type="button" class="btn btn-outline-primary fw-semibold" onclick="analizarLinkGoogleMaps(document.getElementById('inputGoogleMapsUrl').value)">
+                                    <i class="bi bi-pin-map-fill me-1"></i> Fijar Pin
+                                </button>
+                            </div>
+                            <div id="pubMap" style="height: 220px; width: 100%; border-radius: 8px; border: 1px solid #ced4da;" class="mb-2"></div>
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div id="pubCoordsFeedback" class="small text-muted font-monospace" style="font-size: 0.75rem;">
+                                    <?= (!empty($comercioUser['latitud']) && !empty($comercioUser['longitud'])) ? '📍 Ubicación guardada: ' . round($comercioUser['latitud'], 5) . ', ' . round($comercioUser['longitud'], 5) : '📍 Haz clic en el mapa para marcar tu local' ?>
+                                </div>
+                                <a id="btnVerGoogleMaps" href="<?= (!empty($comercioUser['latitud']) && !empty($comercioUser['longitud'])) ? 'https://www.google.com/maps?q=' . $comercioUser['latitud'] . ',' . $comercioUser['longitud'] : 'https://www.google.com/maps?q=-25.3870,-57.3400' ?>" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
+                                    <i class="bi bi-google me-1"></i> Abrir en Google Maps
+                                </a>
+                            </div>
+                            <input type="hidden" name="latitud" id="pubLatitud" value="<?= htmlspecialchars($comercioUser['latitud'] ?? '') ?>">
+                            <input type="hidden" name="longitud" id="pubLongitud" value="<?= htmlspecialchars($comercioUser['longitud'] ?? '') ?>">
                         </div>
 
                         <button type="submit" class="btn btn-fr-primary w-100 py-2">
@@ -1355,7 +1388,14 @@ require_once __DIR__ . '/includes/header.php';
                                 <p class="card-text text-secondary small flex-grow-1"><?= htmlspecialchars($prod['descripcion'] ?: 'Pack sorpresa con delicias del día preparadas por el comercio.') ?></p>
                                 
                                 <div class="bg-light p-3 rounded-3 mb-3 small text-muted">
-                                    <div class="mb-1"><i class="bi bi-geo-alt text-danger me-1"></i> <?= htmlspecialchars($prod['comercio_direccion'] ?: 'Consultar al comercio') ?></div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-truncate me-1"><i class="bi bi-geo-alt-fill text-danger me-1"></i> <?= htmlspecialchars($prod['comercio_direccion'] ?: 'Itauguá, Central') ?></span>
+                                        <?php if (!empty($prod['comercio_latitud']) && !empty($prod['comercio_longitud'])): ?>
+                                            <a href="https://www.google.com/maps?q=<?= $prod['comercio_latitud'] ?>,<?= $prod['comercio_longitud'] ?>" target="_blank" class="badge bg-white text-primary border border-primary-subtle text-decoration-none fw-semibold py-1 px-2 flex-shrink-0" title="Ver en Google Maps">
+                                                <i class="bi bi-google text-danger me-1"></i>Mapa
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
                                     <div><i class="bi bi-clock text-primary me-1"></i> Retiro: <strong><?= htmlspecialchars($prod['horario_retiro'] ?: 'Hoy') ?></strong></div>
                                 </div>
 
@@ -1610,6 +1650,16 @@ require_once __DIR__ . '/includes/header.php';
                                             <span class="text-muted">Dirección:</span>
                                             <span class="text-dark text-truncate ms-2"><?= htmlspecialchars($res['comercio_direccion'] ?: 'Consultar al local') ?></span>
                                         </div>
+                                        <?php 
+                                        $destMaps = (!empty($res['comercio_latitud']) && !empty($res['comercio_longitud'])) 
+                                            ? ($res['comercio_latitud'] . ',' . $res['comercio_longitud']) 
+                                            : urlencode(($res['comercio_direccion'] ?: 'Itauguá') . ', Itauguá, Central, Paraguay');
+                                        ?>
+                                        <div class="mt-2 mb-2">
+                                            <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $destMaps ?>" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill w-100 fw-semibold">
+                                                <i class="bi bi-geo-alt-fill text-danger me-1"></i> Cómo llegar en Google Maps
+                                            </a>
+                                        </div>
                                         <div class="d-flex justify-content-between mb-1">
                                             <span class="text-muted">Horario de retiro:</span>
                                             <span class="badge bg-secondary"><?= htmlspecialchars($res['horario_retiro'] ?: 'Hoy') ?></span>
@@ -1760,6 +1810,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="badge badge-stock small">${p.stock} disp.</span>
                     </div>
                     ${actionBtn}
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}" target="_blank" class="btn btn-outline-secondary btn-sm w-100 rounded-pill mt-1 py-1" style="font-size:0.75rem;">
+                        <i class="bi bi-google text-danger me-1"></i> Abrir ruta en Google Maps
+                    </a>
                 </div>
             `;
 
@@ -1824,6 +1877,180 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Inicializar para clientes
     setupViewSwitcher('btnViewGridCli', 'btnViewMapCli', 'productsGridCli', 'mapViewContainerCli', () => initRescueMap('rescueMapCli', true));
+
+    // === Mapa Interactivo para Publicación de Excedentes (Comercios) ===
+    const pubMapContainer = document.getElementById('pubMap');
+    let pubMapInstance = null;
+    let pubMarker = null;
+
+    const initialLat = <?= !empty($comercioUser['latitud']) ? (float)$comercioUser['latitud'] : -25.3870 ?>;
+    const initialLng = <?= !empty($comercioUser['longitud']) ? (float)$comercioUser['longitud'] : -57.3400 ?>;
+    const hasInitialCoords = <?= (!empty($comercioUser['latitud']) && !empty($comercioUser['longitud'])) ? 'true' : 'false' ?>;
+
+    function initPubMap() {
+        if (!pubMapContainer || typeof L === 'undefined' || pubMapInstance) return;
+
+        pubMapInstance = L.map('pubMap').setView([initialLat, initialLng], hasInitialCoords ? 16 : 14);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(pubMapInstance);
+
+        const storePinIcon = L.divIcon({
+            className: 'custom-map-pin',
+            html: `<div style="background:#dc2626; color:white; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(220,38,38,0.5); border:3px solid white; font-size:17px;"><i class="bi bi-shop"></i></div>`,
+            iconSize: [38, 38],
+            iconAnchor: [19, 19]
+        });
+
+        function setPubCoords(lat, lng) {
+            document.getElementById('pubLatitud').value = lat.toFixed(7);
+            document.getElementById('pubLongitud').value = lng.toFixed(7);
+            const feedback = document.getElementById('pubCoordsFeedback');
+            if (feedback) {
+                feedback.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i> Punto fijado: ${lat.toFixed(5)}, ${lng.toFixed(5)}</span>`;
+            }
+            const btnG = document.getElementById('btnVerGoogleMaps');
+            if (btnG) {
+                btnG.href = `https://www.google.com/maps?q=${lat.toFixed(7)},${lng.toFixed(7)}`;
+            }
+        }
+
+        if (hasInitialCoords) {
+            pubMarker = L.marker([initialLat, initialLng], { icon: storePinIcon, draggable: true }).addTo(pubMapInstance);
+            pubMarker.on('dragend', function(e) {
+                const pos = e.target.getLatLng();
+                setPubCoords(pos.lat, pos.lng);
+            });
+            setPubCoords(initialLat, initialLng);
+        }
+
+        pubMapInstance.on('click', function(e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            if (pubMarker) {
+                pubMarker.setLatLng([lat, lng]);
+            } else {
+                pubMarker = L.marker([lat, lng], { icon: storePinIcon, draggable: true }).addTo(pubMapInstance);
+                pubMarker.on('dragend', function(ev) {
+                    const pos = ev.target.getLatLng();
+                    setPubCoords(pos.lat, pos.lng);
+                });
+            }
+            setPubCoords(lat, lng);
+        });
+
+        setTimeout(() => pubMapInstance.invalidateSize(), 300);
+    }
+
+    window.analizarLinkGoogleMaps = function(text) {
+        if (!text) return;
+        text = text.trim();
+        let lat = null;
+        let lng = null;
+
+        // Formato 1: @lat,lng (URL de Google Maps en navegador)
+        let m = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (m) {
+            lat = parseFloat(m[1]);
+            lng = parseFloat(m[2]);
+        }
+        
+        // Formato 2: ?q=lat,lng o destination=lat,lng
+        if (!lat) {
+            m = text.match(/(?:q|ll|destination)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (m) {
+                lat = parseFloat(m[1]);
+                lng = parseFloat(m[2]);
+            }
+        }
+
+        // Formato 3: coordenadas puras separadas por coma (-25.3870, -57.3400)
+        if (!lat) {
+            m = text.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+            if (m) {
+                lat = parseFloat(m[1]);
+                lng = parseFloat(m[2]);
+            }
+        }
+
+        if (lat !== null && lng !== null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            if (!pubMapInstance) initPubMap();
+            if (pubMapInstance) {
+                pubMapInstance.setView([lat, lng], 17);
+                if (pubMarker) {
+                    pubMarker.setLatLng([lat, lng]);
+                } else {
+                    const storePinIcon = L.divIcon({
+                        className: 'custom-map-pin',
+                        html: `<div style="background:#dc2626; color:white; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(220,38,38,0.5); border:3px solid white; font-size:17px;"><i class="bi bi-shop"></i></div>`,
+                        iconSize: [38, 38],
+                        iconAnchor: [19, 19]
+                    });
+                    pubMarker = L.marker([lat, lng], { icon: storePinIcon, draggable: true }).addTo(pubMapInstance);
+                    pubMarker.on('dragend', function(ev) {
+                        const pos = ev.target.getLatLng();
+                        setPubCoords(pos.lat, pos.lng);
+                    });
+                }
+                setPubCoords(lat, lng);
+                const feedback = document.getElementById('pubCoordsFeedback');
+                if (feedback) {
+                    feedback.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i> ¡Google Maps vinculado!: ${lat.toFixed(5)}, ${lng.toFixed(5)}</span>`;
+                }
+            }
+        }
+    };
+
+    window.detectarGPSPublicacion = function() {
+        if (!navigator.geolocation) {
+            alert('Tu navegador no soporta geolocalización.');
+            return;
+        }
+        const feedback = document.getElementById('pubCoordsFeedback');
+        if (feedback) feedback.innerHTML = '<span class="text-primary"><i class="bi bi-hourglass-split me-1"></i> Detectando GPS...</span>';
+
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                if (!pubMapInstance) initPubMap();
+                if (pubMapInstance) {
+                    pubMapInstance.setView([lat, lng], 17);
+                    if (pubMarker) {
+                        pubMarker.setLatLng([lat, lng]);
+                    } else {
+                        const storePinIcon = L.divIcon({
+                            className: 'custom-map-pin',
+                            html: `<div style="background:#dc2626; color:white; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(220,38,38,0.5); border:3px solid white; font-size:17px;"><i class="bi bi-shop"></i></div>`,
+                            iconSize: [38, 38],
+                            iconAnchor: [19, 19]
+                        });
+                        pubMarker = L.marker([lat, lng], { icon: storePinIcon, draggable: true }).addTo(pubMapInstance);
+                        pubMarker.on('dragend', function(ev) {
+                            const p = ev.target.getLatLng();
+                            setPubCoords(p.lat, p.lng);
+                        });
+                    }
+                    setPubCoords(lat, lng);
+                    if (feedback) {
+                        feedback.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i> ¡GPS Detectado!: ${lat.toFixed(5)}, ${lng.toFixed(5)}</span>`;
+                    }
+                }
+            },
+            function(err) {
+                if (feedback) {
+                    feedback.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i> No se pudo obtener GPS. Haz clic en el mapa.</span>';
+                }
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+    };
+
+    if (pubMapContainer) {
+        initPubMap();
+    }
 
     // 4. Generación instantánea local de códigos QR (0ms latencia, sin parpadeos de red)
     if (typeof QRCode !== 'undefined') {

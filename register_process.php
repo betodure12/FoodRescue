@@ -40,6 +40,19 @@ $rol = trim($_POST['rol'] ?? 'cliente');
 $password = mb_substr($_POST['password'] ?? '', 0, 128);
 $password_confirm = mb_substr($_POST['password_confirm'] ?? '', 0, 128);
 
+// Coordenadas geográficas (solo para comercios)
+$latitud = null;
+$longitud = null;
+if (!empty($_POST['latitud']) && !empty($_POST['longitud'])) {
+    $latRaw = (float)$_POST['latitud'];
+    $lngRaw = (float)$_POST['longitud'];
+    // Validar rango geográfico razonable (Paraguay: lat -19 a -27, lng -54 a -62)
+    if ($latRaw >= -90 && $latRaw <= 90 && $lngRaw >= -180 && $lngRaw <= 180) {
+        $latitud = round($latRaw, 7);
+        $longitud = round($lngRaw, 7);
+    }
+}
+
 // Validaciones
 if (empty($nombre) || empty($email) || empty($password)) {
     $_SESSION['flash_error'] = "Por favor completa todos los campos obligatorios.";
@@ -72,6 +85,19 @@ if ($password !== $password_confirm) {
 try {
     $pdo = getDBConnection();
 
+    // Asegurar que la tabla usuarios tenga columnas latitud/longitud (migración automática segura)
+    try {
+        $uCols = $pdo->query("DESCRIBE usuarios")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('latitud', $uCols)) {
+            $pdo->exec("ALTER TABLE usuarios ADD COLUMN `latitud` DECIMAL(10,7) DEFAULT NULL");
+        }
+        if (!in_array('longitud', $uCols)) {
+            $pdo->exec("ALTER TABLE usuarios ADD COLUMN `longitud` DECIMAL(10,7) DEFAULT NULL");
+        }
+    } catch (Throwable $colErr) {
+        error_log("Column migration note: " . $colErr->getMessage());
+    }
+
     // Verificar si el email ya se encuentra registrado (insensible a mayúsculas)
     $checkStmt = $pdo->prepare("SELECT id, rol FROM usuarios WHERE LOWER(email) = :email LIMIT 1");
     $checkStmt->execute([':email' => $email]);
@@ -88,10 +114,10 @@ try {
     // Iniciar transacción para asegurar consistencia
     $pdo->beginTransaction();
 
-    // Insertar nuevo usuario
+    // Insertar nuevo usuario con coordenadas de ubicación
     $insertStmt = $pdo->prepare("
-        INSERT INTO usuarios (nombre, email, password, rol, direccion, telefono) 
-        VALUES (:nombre, :email, :password, :rol, :direccion, :telefono)
+        INSERT INTO usuarios (nombre, email, password, rol, direccion, telefono, latitud, longitud) 
+        VALUES (:nombre, :email, :password, :rol, :direccion, :telefono, :latitud, :longitud)
     ");
     
     $insertStmt->execute([
@@ -100,7 +126,9 @@ try {
         ':password' => $hashedPassword,
         ':rol' => $rol,
         ':direccion' => $direccion,
-        ':telefono' => $telefono
+        ':telefono' => $telefono,
+        ':latitud' => $latitud,
+        ':longitud' => $longitud
     ]);
 
     $nuevoUsuarioId = (int)$pdo->lastInsertId();

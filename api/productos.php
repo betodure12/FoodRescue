@@ -54,6 +54,7 @@ try {
                p.horario_retiro, p.estado, p.fecha_creacion,
                u.id AS comercio_id, u.nombre AS comercio_nombre, 
                u.direccion AS comercio_direccion, u.telefono AS comercio_telefono,
+               u.latitud, u.longitud,
                COALESCE((SELECT AVG(calificacion) FROM resenas WHERE producto_id = p.id), 4.9) AS promedio_calificacion,
                COALESCE((SELECT COUNT(*) FROM resenas WHERE producto_id = p.id), 12) AS total_resenas
         FROM productos p
@@ -89,9 +90,16 @@ try {
     foreach ($productos as $prod) {
         $descuentoPorc = round((($prod['precio_original'] - $prod['precio_descuento']) / $prod['precio_original']) * 100);
         $cid = (int)$prod['comercio_id'];
-        $idx = ($cid + (int)$prod['id']) % count($latOffsets);
-        $lat = $latOffsets[$idx] + (((int)$prod['id'] % 3) * 0.0008);
-        $lng = $lngOffsets[$idx] + (((int)$prod['id'] % 4) * 0.0008);
+        
+        // Coordenadas exactas del comercio si están registradas
+        if (!empty($prod['latitud']) && !empty($prod['longitud'])) {
+            $lat = (float)$prod['latitud'];
+            $lng = (float)$prod['longitud'];
+        } else {
+            $idx = ($cid + (int)$prod['id']) % count($latOffsets);
+            $lat = $latOffsets[$idx] + (((int)$prod['id'] % 3) * 0.0008);
+            $lng = $lngOffsets[$idx] + (((int)$prod['id'] % 4) * 0.0008);
+        }
 
         $formatted[] = [
             'id' => (int)$prod['id'],

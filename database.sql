@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS `usuarios` (
     `rol` ENUM('cliente', 'comercio') NOT NULL DEFAULT 'cliente',
     `direccion` VARCHAR(255) NULL,
     `telefono` VARCHAR(30) NULL,
+    `latitud` DECIMAL(10,7) DEFAULT NULL,
+    `longitud` DECIMAL(10,7) DEFAULT NULL,
     `fecha_registro` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

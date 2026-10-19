@@ -145,6 +145,33 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
 
+                    <!-- Mapa Interactivo para Comercios: Selector de Ubicación Exacta -->
+                    <input type="hidden" name="latitud" id="inputLatitud" value="">
+                    <input type="hidden" name="longitud" id="inputLongitud" value="">
+                    <div id="mapPickerSection" class="mb-3" style="<?= $isComercio ? '' : 'display:none;' ?>">
+                        <label class="form-label fw-semibold d-flex align-items-center justify-content-between">
+                            <span><i class="bi bi-pin-map-fill text-danger me-1"></i> Ubicación Exacta del Local en el Mapa</span>
+                            <span class="badge bg-danger-subtle text-danger small fw-normal">Requerido para Comercios</span>
+                        </label>
+                        <p class="text-muted small mb-2">Haz clic en el mapa o usa el botón GPS para marcar la ubicación exacta de tu negocio. Los clientes te encontrarán en este punto.</p>
+                        
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <button type="button" id="btnGeolocate" class="btn btn-outline-success btn-sm rounded-pill px-3" onclick="autoDetectLocation()">
+                                <i class="bi bi-crosshair me-1"></i> Usar mi GPS / Ubicación Actual
+                            </button>
+                            <span id="geoStatus" class="text-muted small align-self-center"></span>
+                        <div class="input-group input-group-sm mb-2 shadow-sm">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-google text-danger"></i></span>
+                            <input type="text" id="regGoogleMapsInput" class="form-control border-start-0 border-end-0" placeholder="O pega enlace de Google Maps o coordenadas (-25.3870, -57.3400)" oninput="parsearLinkGoogleMapsRegistro(this.value)">
+                            <button type="button" class="btn btn-outline-primary fw-semibold" onclick="parsearLinkGoogleMapsRegistro(document.getElementById('regGoogleMapsInput').value)">
+                                <i class="bi bi-pin-map-fill me-1"></i> Fijar Pin
+                            </button>
+                        </div>
+
+                        <div id="regMap" style="height: 280px; border-radius: 12px; border: 2px solid #e2e8f0; z-index: 1;"></div>
+                        <div id="mapCoordsFeedback" class="mt-1 small"></div>
+                    </div>
+
                     <!-- Contraseña -->
                     <div class="mb-3">
                         <label for="password" class="form-label fw-semibold">Contraseña</label>
@@ -195,6 +222,7 @@ require_once __DIR__ . '/includes/header.php';
     const rolExplanation = document.getElementById('rol-explanation');
     const rolIcon = document.getElementById('rol-icon');
     const rolText = document.getElementById('rol-text');
+    const mapPickerSection = document.getElementById('mapPickerSection');
 
     // Elementos de validación en tiempo real
     const inputEmail = document.getElementById('email');
@@ -209,6 +237,133 @@ require_once __DIR__ . '/includes/header.php';
     let emailValido = true;
     let emailTimer = null;
 
+    // === Mapa Picker para Comercios ===
+    let regMap = null;
+    let regMarker = null;
+    const inputLat = document.getElementById('inputLatitud');
+    const inputLng = document.getElementById('inputLongitud');
+    const mapFeedback = document.getElementById('mapCoordsFeedback');
+    const geoStatus = document.getElementById('geoStatus');
+
+    function initRegMap() {
+        if (regMap) return; // ya inicializado
+        if (typeof L === 'undefined') return;
+
+        // Centrado en Itauguá, Central, Paraguay
+        regMap = L.map('regMap').setView([-25.3870, -57.3400], 14);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19
+        }).addTo(regMap);
+
+        // Pin personalizado verde FoodRescue
+        const pinIcon = L.divIcon({
+            className: 'custom-map-pin',
+            html: `<div style="background:#dc2626; color:white; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(220,38,38,0.5); border:3px solid white; font-size:18px;"><i class="bi bi-shop"></i></div>`,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        });
+
+        // Click en el mapa para colocar el pin
+        regMap.on('click', function(e) {
+            placeMarker(e.latlng.lat, e.latlng.lng, pinIcon);
+        });
+
+        // Si ya hay coords guardadas (ej. volver atrás), colocar el pin
+        if (inputLat.value && inputLng.value) {
+            placeMarker(parseFloat(inputLat.value), parseFloat(inputLng.value), pinIcon);
+        }
+    }
+
+    function placeMarker(lat, lng, icon) {
+        if (!regMap) return;
+        if (regMarker) {
+            regMarker.setLatLng([lat, lng]);
+        } else {
+            const pinIcon = icon || L.divIcon({
+                className: 'custom-map-pin',
+                html: `<div style="background:#dc2626; color:white; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(220,38,38,0.5); border:3px solid white; font-size:18px;"><i class="bi bi-shop"></i></div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+            regMarker = L.marker([lat, lng], { icon: pinIcon, draggable: true }).addTo(regMap);
+            // Permitir arrastrar el pin para ajustar posición
+            regMarker.on('dragend', function(e) {
+                const pos = e.target.getLatLng();
+                updateCoords(pos.lat, pos.lng);
+            });
+        }
+        regMap.setView([lat, lng], 17);
+        updateCoords(lat, lng);
+    }
+
+    function updateCoords(lat, lng) {
+        inputLat.value = lat.toFixed(7);
+        inputLng.value = lng.toFixed(7);
+        if (mapFeedback) {
+            mapFeedback.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i> Ubicación marcada: ${lat.toFixed(5)}, ${lng.toFixed(5)} — Los clientes verán tu local aquí en el mapa.</span>`;
+        }
+    }
+
+    function autoDetectLocation() {
+        if (!navigator.geolocation) {
+            geoStatus.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i> Tu navegador no soporta geolocalización.</span>';
+            return;
+        }
+        geoStatus.innerHTML = '<span class="text-primary"><i class="bi bi-hourglass-split me-1"></i> Detectando ubicación...</span>';
+        
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                geoStatus.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i> ¡GPS detectado!</span>';
+                
+                if (!regMap) initRegMap();
+                setTimeout(() => {
+                    if (regMap) regMap.invalidateSize();
+                    placeMarker(lat, lng);
+                }, 200);
+            },
+            function(error) {
+                let msg = 'No se pudo obtener tu ubicación.';
+                if (error.code === 1) msg = 'Permiso de ubicación denegado. Activa los permisos de GPS en tu navegador.';
+                if (error.code === 2) msg = 'No se pudo determinar tu posición. Intenta en exteriores.';
+                if (error.code === 3) msg = 'La solicitud de GPS tardó demasiado. Intenta de nuevo.';
+                geoStatus.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i> ${msg}</span>`;
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+    }
+
+    function parsearLinkGoogleMapsRegistro(text) {
+        if (!text) return;
+        text = text.trim();
+        let lat = null;
+        let lng = null;
+
+        let m = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); }
+        if (!lat) {
+            m = text.match(/(?:q|ll|destination)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); }
+        }
+        if (!lat) {
+            m = text.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+            if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); }
+        }
+
+        if (lat !== null && lng !== null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            if (!regMap) initRegMap();
+            setTimeout(() => {
+                placeMarker(lat, lng);
+                if (mapFeedback) {
+                    mapFeedback.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i> ¡Google Maps vinculado!: ${lat.toFixed(5)}, ${lng.toFixed(5)}</span>`;
+                }
+            }, 150);
+        }
+    }
+
     function updateRoleUI() {
         if (radioComercio.checked) {
             badgeCliente.style.display = 'none';
@@ -220,6 +375,13 @@ require_once __DIR__ . '/includes/header.php';
             rolExplanation.className = 'alert mt-3 mb-0 py-2 px-3 d-flex align-items-center rounded-3 alert-warning border-warning-subtle';
             rolIcon.className = 'bi bi-shop text-warning-emphasis fs-5 me-2 flex-shrink-0';
             rolText.innerHTML = '<strong>Perfil Negocio:</strong> Tendrás acceso a tu panel para publicar packs, gestionar stock y validar compras con tu caja de validación.';
+            
+            // Mostrar mapa picker
+            mapPickerSection.style.display = '';
+            setTimeout(() => {
+                initRegMap();
+                if (regMap) regMap.invalidateSize();
+            }, 300);
         } else {
             badgeCliente.style.display = 'inline-block';
             badgeComercio.style.display = 'none';
@@ -230,11 +392,24 @@ require_once __DIR__ . '/includes/header.php';
             rolExplanation.className = 'alert mt-3 mb-0 py-2 px-3 d-flex align-items-center rounded-3 alert-success border-success-subtle';
             rolIcon.className = 'bi bi-bag-check-fill text-success fs-5 me-2 flex-shrink-0';
             rolText.innerHTML = '<strong>Perfil Cliente:</strong> Podrás explorar packs sorpresa en Itauguá, reservarlos al 50% de descuento y retirarlos en el local con tu código de canje.';
+            
+            // Ocultar mapa picker
+            mapPickerSection.style.display = 'none';
         }
     }
 
     radioCliente.addEventListener('change', updateRoleUI);
     radioComercio.addEventListener('change', updateRoleUI);
+
+    // Inicializar mapa si ya viene como comercio
+    if (radioComercio.checked) {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                initRegMap();
+                if (regMap) regMap.invalidateSize();
+            }, 500);
+        });
+    }
 
     // Verificación de disponibilidad de correo en tiempo real (anti-duplicados)
     function verificarEmailEnServidor(email) {
@@ -332,6 +507,13 @@ require_once __DIR__ . '/includes/header.php';
         if (!verificarPasswords()) {
             e.preventDefault();
             inputPasswordConfirm.focus();
+            return;
+        }
+        // Validar que comercio tenga ubicación marcada
+        if (radioComercio.checked && (!inputLat.value || !inputLng.value)) {
+            e.preventDefault();
+            alert('Por favor marca la ubicación exacta de tu local en el mapa antes de registrarte. Puedes hacer clic en el mapa o usar el botón "Usar mi GPS".');
+            document.getElementById('regMap').scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
     });
