@@ -1383,6 +1383,9 @@ require_once __DIR__ . '/includes/header.php';
                                         <span class="badge bg-warning text-dark font-monospace fs-6 px-2 py-1">
                                             <?= htmlspecialchars($res['codigo_retiro']) ?>
                                         </span>
+                                        <div class="small text-muted mt-1" style="font-size: 0.75rem;">
+                                            <i class="bi bi-calendar3 me-1"></i> <?= date('d/m/Y H:i', strtotime($res['fecha_reserva'])) ?> hs
+                                        </div>
                                     </td>
                                     <td>
                                         <div class="fw-bold text-dark"><?= htmlspecialchars($res['producto_titulo']) ?></div>
@@ -1494,7 +1497,12 @@ require_once __DIR__ . '/includes/header.php';
                                         <div class="fs-2 fw-extrabold font-monospace text-dark tracking-wide bg-warning-subtle py-1 px-3 rounded-3 d-inline-block border border-warning my-1">
                                             <?= htmlspecialchars($res['codigo_retiro']) ?>
                                         </div>
-                                        <div class="mt-1">
+                                        <div class="small text-muted my-1">
+                                            <i class="bi bi-calendar3 me-1"></i> Reservado: <strong><?= date('d/m/Y H:i', strtotime($res['fecha_reserva'])) ?> hs</strong>
+                                            <span class="mx-1">•</span>
+                                            <i class="bi bi-clock me-1"></i> Retiro: <strong><?= htmlspecialchars($res['horario_retiro'] ?: 'Hoy') ?></strong>
+                                        </div>
+                                        <div class="mt-2">
                                             <a href="validar_pase.php?codigo=<?= urlencode($res['codigo_retiro']) ?>" target="_blank" class="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-semibold shadow-sm">
                                                 <i class="bi bi-box-arrow-up-right me-1"></i> Abrir Verificación en Vivo / Simular Escaneo
                                             </a>

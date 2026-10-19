@@ -11,6 +11,9 @@ define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
 define('DB_CHARSET', 'utf8mb4');
 
+// Configuración estricta de Zona Horaria Oficial de Paraguay (UTC-3)
+date_default_timezone_set('America/Asuncion');
+
 /**
  * Inicializar sesión con parámetros de seguridad reforzados
  */
@@ -54,6 +57,8 @@ function getDBConnection(): PDO {
             try {
                 $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . $dbName . ";charset=" . DB_CHARSET;
                 $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+                // Sincronizar zona horaria de la sesión MySQL con la hora oficial de Paraguay (UTC-3)
+                @$pdo->exec("SET time_zone = '-03:00'");
                 break;
             } catch (PDOException $e) {
                 $lastException = $e;

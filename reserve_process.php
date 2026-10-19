@@ -71,16 +71,18 @@ try {
     // Generar código de retiro criptográficamente seguro (16.7 millones de combinaciones)
     $codigoRetiro = 'FR-' . strtoupper(bin2hex(random_bytes(3)));
 
-    // Crear la reserva
+    // Crear la reserva con fecha y hora exacta de Paraguay
+    $fechaActualPy = date('Y-m-d H:i:s');
     $reservaStmt = $pdo->prepare("
-        INSERT INTO reservas (usuario_id, producto_id, cantidad, codigo_retiro, estado)
-        VALUES (:usuario_id, :producto_id, :cantidad, :codigo_retiro, 'reservado')
+        INSERT INTO reservas (usuario_id, producto_id, cantidad, codigo_retiro, fecha_reserva, estado)
+        VALUES (:usuario_id, :producto_id, :cantidad, :codigo_retiro, :fecha_reserva, 'reservado')
     ");
     $reservaStmt->execute([
-        ':usuario_id'    => $usuarioId,
-        ':producto_id'   => $productoId,
-        ':cantidad'      => $cantidad,
-        ':codigo_retiro' => $codigoRetiro
+        ':usuario_id'     => $usuarioId,
+        ':producto_id'    => $productoId,
+        ':cantidad'       => $cantidad,
+        ':codigo_retiro'  => $codigoRetiro,
+        ':fecha_reserva'  => $fechaActualPy
     ]);
 
     // Actualizar stock del producto
