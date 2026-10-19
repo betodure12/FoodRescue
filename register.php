@@ -160,6 +160,8 @@ require_once __DIR__ . '/includes/header.php';
                                 <i class="bi bi-crosshair me-1"></i> Usar mi GPS / Ubicación Actual
                             </button>
                             <span id="geoStatus" class="text-muted small align-self-center"></span>
+                        </div>
+
                         <div class="input-group input-group-sm mb-2 shadow-sm">
                             <span class="input-group-text bg-white border-end-0"><i class="bi bi-google text-danger"></i></span>
                             <input type="text" id="regGoogleMapsInput" class="form-control border-start-0 border-end-0" placeholder="O pega enlace de Google Maps o coordenadas (-25.3870, -57.3400)" oninput="parsearLinkGoogleMapsRegistro(this.value)">
