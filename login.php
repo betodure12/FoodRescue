@@ -68,12 +68,38 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </form>
 
-                <!-- Demo quick hint -->
-                <div class="mt-3 pt-3 border-top text-center text-muted small" style="font-size: 0.8rem;">
-                    <p class="mb-1 fw-bold"><i class="bi bi-info-circle me-1"></i> Cuentas de Demostración:</p>
-                    <div class="text-break">Comercio: <code>comercio@laespiga.com</code> / <code>password123</code></div>
-                    <div class="text-break mt-1">Cliente: <code>cliente@foodrescue.com</code> / <code>password123</code></div>
+                <!-- Cuentas Demo con Autocompletado de 1 Clic -->
+                <div class="mt-3 pt-3 border-top small" style="font-size: 0.82rem;">
+                    <p class="mb-2 fw-bold text-dark text-center"><i class="bi bi-info-circle me-1 text-primary"></i> Cuentas de Demostración (Haz clic para usar):</p>
+                    <div class="d-flex flex-column gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-warning text-dark text-start d-flex justify-content-between align-items-center py-2 px-3 rounded-3 shadow-sm" onclick="llenarCredenciales('comercio@laespiga.com', 'password123')" title="Autocompletar cuenta de comercio">
+                            <div>
+                                <span class="badge bg-warning text-dark me-1"><i class="bi bi-shop me-1"></i>Comercio</span>
+                                <span class="fw-semibold">comercio@laespiga.com</span>
+                            </div>
+                            <span class="badge bg-light text-muted border">password123 <i class="bi bi-arrow-right-short ms-1 text-warning"></i></span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success text-dark text-start d-flex justify-content-between align-items-center py-2 px-3 rounded-3 shadow-sm" onclick="llenarCredenciales('cliente@foodrescue.com', 'password123')" title="Autocompletar cuenta de cliente">
+                            <div>
+                                <span class="badge bg-success text-white me-1"><i class="bi bi-bag-check-fill me-1"></i>Cliente</span>
+                                <span class="fw-semibold">cliente@foodrescue.com</span>
+                            </div>
+                            <span class="badge bg-light text-muted border">password123 <i class="bi bi-arrow-right-short ms-1 text-success"></i></span>
+                        </button>
+                    </div>
                 </div>
+
+                <script>
+                function llenarCredenciales(email, pass) {
+                    const inEmail = document.getElementById('email');
+                    const inPass = document.getElementById('password');
+                    if (inEmail && inPass) {
+                        inEmail.value = email;
+                        inPass.value = pass;
+                        inPass.focus();
+                    }
+                }
+                </script>
             </div>
         </div>
     </div>
