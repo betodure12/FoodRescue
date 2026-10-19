@@ -1,13 +1,24 @@
 # =========================================================
-# FoodRescue - Configuración Defensiva de Servidor Apache (.htaccess)
-# Blindaje para Despliegue en la Nube (Hosting / VPS / cPanel)
+# FoodRescue - Blindaje Defensivo Servidor Apache (.htaccess)
+# Protección Integral contra Ciberataques (OWASP Top 10)
 # =========================================================
 
-# 1. Deshabilitar listado de directorios (Prevenir Directory Browsing)
-Options -Indexes
+# 1. Deshabilitar listado de directorios (Prevenir Directory Browsing / Enumeración)
+Options -Indexes -MultiViews
 
-# 2. Bloquear acceso directo a archivos sensibles y de base de datos
-<FilesMatch "(^#.*#|\.(sql|env|log|md|git|bak|backup|ini|sh|bat)|~)$">
+# 2. Bloquear métodos HTTP inseguros (TRACE, TRACK, DELETE, PUT)
+<LimitExcept GET POST HEAD OPTIONS>
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</LimitExcept>
+
+# 3. Bloquear acceso directo a archivos sensibles, de configuración y respaldos
+<FilesMatch "(^#.*#|\.(sql|env|log|md|git|bak|backup|ini|sh|bat|yml|yaml|conf)|~)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
@@ -17,7 +28,7 @@ Options -Indexes
     </IfModule>
 </FilesMatch>
 
-# 3. Bloquear acceso a archivos y carpetas ocultas (ej. .git, .env)
+# 4. Bloquear acceso a archivos y carpetas ocultas (ej. .git, .env, .htaccess)
 <FilesMatch "^\.">
     <IfModule mod_authz_core.c>
         Require all denied
@@ -28,7 +39,31 @@ Options -Indexes
     </IfModule>
 </FilesMatch>
 
-# 4. Inyección de Cabeceras HTTP de Seguridad en el Servidor
+# 5. Reglas de Filtrado contra Ataques Web (WAF Ligero mediante RewriteEngine)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Bloquear métodos TRACE y TRACK (Mitigación Cross-Site Tracing / XST)
+    RewriteCond %{REQUEST_METHOD} ^(TRACE|TRACK) [NC]
+    RewriteRule .* - [F,L]
+
+    # Bloquear Directory Traversal (../ o ..\)
+    RewriteCond %{QUERY_STRING} (\.\./|\.\.\\) [NC,OR]
+    # Bloquear inyecciones PHP y decodificación maliciosa
+    RewriteCond %{QUERY_STRING} (base64_encode|GLOBALS|_REQUEST|eval\(|document\.cookie) [NC,OR]
+    # Bloquear firmas típicas de SQL Injection
+    RewriteCond %{QUERY_STRING} (union.*select|insert.*into|drop.*table|information_schema|benchmark\() [NC,OR]
+    # Bloquear inyección de scripts HTML/XSS en URI
+    RewriteCond %{QUERY_STRING} (<script|%3Cscript|<svg|%3Csvg|<iframe|%3Ciframe) [NC]
+    RewriteRule .* - [F,L]
+
+    # Bloquear escáneres automáticos de vulnerabilidades conocidos
+    RewriteCond %{HTTP_USER_AGENT} (sqlmap|nikto|wpscan|havij|acunetix|nessus) [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# 6. Inyección de Cabeceras HTTP de Seguridad
 <IfModule mod_headers.c>
     # Prevención de Clickjacking
     Header always set X-Frame-Options "SAMEORIGIN"
@@ -43,11 +78,14 @@ Options -Indexes
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     
     # Restricción de permisos de hardware
-    Header always set Permissions-Policy "geolocation=(self), camera=(), microphone=()"
+    Header always set Permissions-Policy "geolocation=(self), camera=(), microphone=(), payment=()"
     
+    # Aislamiento de origen cruzado
+    Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+
     # Ocultar huella del servidor PHP
     Header unset X-Powered-By
 </IfModule>
 
-# 5. Configuración UTF-8 por defecto
+# 7. Configuración de Codificación UTF-8 Obligatoria
 AddDefaultCharset UTF-8

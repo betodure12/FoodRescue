@@ -55,8 +55,8 @@ if ($precioDescuento >= $precioOriginal) {
 try {
     $pdo = getDBConnection();
     $stmt = $pdo->prepare("
-        INSERT INTO productos (comercio_id, titulo, descripcion, categoria, precio_original, precio_descuento, stock, horario_retiro, estado)
-        VALUES (:comercio_id, :titulo, :descripcion, :categoria, :precio_original, :precio_descuento, :stock, :horario_retiro, 'disponible')
+        INSERT INTO productos (comercio_id, titulo, descripcion, categoria, precio_original, precio_descuento, stock, horario_retiro, estado, fecha_creacion)
+        VALUES (:comercio_id, :titulo, :descripcion, :categoria, :precio_original, :precio_descuento, :stock, :horario_retiro, 'disponible', :fecha_creacion)
     ");
 
     $stmt->execute([
@@ -67,7 +67,8 @@ try {
         ':precio_original' => $precioOriginal,
         ':precio_descuento'=> $precioDescuento,
         ':stock'           => $stock,
-        ':horario_retiro'  => $horarioRetiro
+        ':horario_retiro'  => $horarioRetiro,
+        ':fecha_creacion'  => date('Y-m-d H:i:s')
     ]);
 
     $_SESSION['flash_success'] = "¡Excedente publicado exitosamente! Ya está visible para los clientes cercanos.";

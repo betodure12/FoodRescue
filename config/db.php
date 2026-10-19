@@ -15,7 +15,7 @@ define('DB_CHARSET', 'utf8mb4');
 date_default_timezone_set('America/Asuncion');
 
 /**
- * Inicializar sesión con parámetros de seguridad reforzados
+ * Inicializar sesión con parámetros de seguridad reforzados (OWASP A07:2021)
  */
 function initSecureSession(): void {
     if (session_status() === PHP_SESSION_NONE) {
@@ -28,6 +28,8 @@ function initSecureSession(): void {
         ini_set('session.cookie_httponly', '1');
         // Obligar a usar solo cookies (no exponer PHPSESSID en URLs)
         ini_set('session.use_only_cookies', '1');
+        // Prevenir Session Fixation aceptando solo IDs válidos generados por el servidor
+        ini_set('session.use_strict_mode', '1');
         // Protección contra ataques CSRF cross-origin
         ini_set('session.cookie_samesite', 'Lax');
 
@@ -36,6 +38,40 @@ function initSecureSession(): void {
         }
         
         session_start();
+
+        // Control de Timeout por Inactividad (2 horas = 7200s)
+        if (isset($_SESSION['usuario_id'])) {
+            $maxInactivity = 7200;
+            if (isset($_SESSION['ultimo_acceso']) && (time() - $_SESSION['ultimo_acceso'] > $maxInactivity)) {
+                // Sesión expirada por inactividad
+                $_SESSION = [];
+                if (ini_get("session.use_cookies")) {
+                    $params = session_get_cookie_params();
+                    setcookie(session_name(), '', time() - 42000,
+                        $params["path"], $params["domain"],
+                        $params["secure"], $params["httponly"]
+                    );
+                }
+                session_destroy();
+                session_start();
+                $_SESSION['flash_error'] = "Tu sesión ha expirado por inactividad por motivos de seguridad. Por favor ingresa nuevamente.";
+                return;
+            }
+            $_SESSION['ultimo_acceso'] = time();
+
+            // Protección contra Session Hijacking (Verificación de Huella Digital User-Agent)
+            $currentFingerprint = hash('sha256', $_SERVER['HTTP_USER_AGENT'] ?? 'unknown_ua');
+            if (!isset($_SESSION['auth_fingerprint'])) {
+                $_SESSION['auth_fingerprint'] = $currentFingerprint;
+            } elseif (!hash_equals($_SESSION['auth_fingerprint'], $currentFingerprint)) {
+                // Huella alterada: posible secuestro de sesión (Session Hijacking)
+                $_SESSION = [];
+                session_destroy();
+                session_start();
+                $_SESSION['flash_error'] = "Se detectó un cambio en tu entorno de navegación. Por seguridad tu sesión fue cerrada.";
+                return;
+            }
+        }
     }
 }
 
@@ -115,7 +151,22 @@ function sendSecurityHeaders(): void {
         header("Referrer-Policy: strict-origin-when-cross-origin");
 
         // Restricción de permisos de hardware sensible
-        header("Permissions-Policy: geolocation=(self), camera=(), microphone=()");
+        header("Permissions-Policy: geolocation=(self), camera=(), microphone=(), payment=()");
+
+        // Aislamiento de origen cruzado (OWASP)
+        header("Cross-Origin-Opener-Policy: same-origin-allow-popups");
+
+        // Content Security Policy (CSP) contra inyección de scripts externos maliciosos y ataques XSS
+        $csp = "default-src 'self'; " .
+               "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; " .
+               "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://unpkg.com; " .
+               "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; " .
+               "img-src 'self' data: https: http: blob:; " .
+               "connect-src 'self' https://*.tile.openstreetmap.org; " .
+               "frame-ancestors 'self'; " .
+               "base-uri 'self'; " .
+               "form-action 'self'";
+        header("Content-Security-Policy: " . $csp);
     }
 }
 
@@ -143,14 +194,15 @@ function verifyCsrfToken(?string $submittedToken): bool {
     return hash_equals($_SESSION['csrf_token'], $submittedToken);
 }
 
-// Sanitizar cadenas para salida segura en HTML
+// Sanitizar cadenas para salida segura en HTML (Mitigación XSS)
 function safeOutput(?string $text): string {
     return htmlspecialchars($text ?? '', ENT_QUOTES, 'UTF-8');
 }
 
 /**
- * Limitador de Tasa de Peticiones (Rate Limiter Defensivo)
+ * Limitador de Tasa de Peticiones Dual (Rate Limiter Defensivo Sesión + IP)
  * Protege contra ataques de fuerza bruta en logins, registros y validaciones de código
+ * Bloquea tanto navegadores como scripts automatizados (cURL, Python, Hydra) que no envían cookies.
  *
  * @param string $action Clave única de la acción (ej: 'login_' . $email)
  * @param int $maxAttempts Máximo de intentos permitidos en la ventana
@@ -160,19 +212,54 @@ function safeOutput(?string $text): string {
 function checkRateLimit(string $action, int $maxAttempts = 5, int $decaySeconds = 60): bool {
     initSecureSession();
     $now = time();
-    $key = 'ratelimit_' . md5($action);
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    $actionHash = md5($action . '_' . $ip);
 
-    if (!isset($_SESSION[$key]) || $now > $_SESSION[$key]['reset_at']) {
-        $_SESSION[$key] = [
-            'attempts' => 1,
-            'reset_at' => $now + $decaySeconds
-        ];
-        return true;
+    // 1. Verificación por Sesión
+    $key = 'ratelimit_' . $actionHash;
+    $sessionBlocked = false;
+    if (isset($_SESSION[$key]) && $now <= $_SESSION[$key]['reset_at'] && $_SESSION[$key]['attempts'] >= $maxAttempts) {
+        $sessionBlocked = true;
     }
 
-    $_SESSION[$key]['attempts']++;
+    // 2. Verificación por Archivo Temporal a nivel IP (Mitiga bots sin cookies)
+    $tmpDir = sys_get_temp_dir();
+    $ipFile = $tmpDir . DIRECTORY_SEPARATOR . 'fr_rl_' . $actionHash . '.json';
+    $fileData = ['attempts' => 0, 'reset_at' => $now + $decaySeconds];
 
-    return $_SESSION[$key]['attempts'] <= $maxAttempts;
+    if (file_exists($ipFile)) {
+        $content = @file_get_contents($ipFile);
+        if ($content) {
+            $parsed = json_decode($content, true);
+            if (is_array($parsed) && isset($parsed['reset_at']) && $now <= $parsed['reset_at']) {
+                $fileData = $parsed;
+            }
+        }
+    }
+
+    $fileData['attempts']++;
+    if ($now > $fileData['reset_at']) {
+        $fileData['reset_at'] = $now + $decaySeconds;
+        $fileData['attempts'] = 1;
+    }
+
+    @file_put_contents($ipFile, json_encode($fileData), LOCK_EX);
+
+    // Sincronizar en sesión
+    if (!isset($_SESSION[$key]) || $now > $_SESSION[$key]['reset_at']) {
+        $_SESSION[$key] = [
+            'attempts' => $fileData['attempts'],
+            'reset_at' => $fileData['reset_at']
+        ];
+    } else {
+        $_SESSION[$key]['attempts']++;
+    }
+
+    if ($sessionBlocked || $fileData['attempts'] > $maxAttempts) {
+        return false;
+    }
+
+    return true;
 }
 
 /**
@@ -180,11 +267,27 @@ function checkRateLimit(string $action, int $maxAttempts = 5, int $decaySeconds 
  */
 function getRateLimitRemainingSeconds(string $action): int {
     initSecureSession();
-    $key = 'ratelimit_' . md5($action);
-    if (!isset($_SESSION[$key])) {
-        return 0;
+    $now = time();
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    $actionHash = md5($action . '_' . $ip);
+
+    $key = 'ratelimit_' . $actionHash;
+    $remSession = isset($_SESSION[$key]) ? max(0, $_SESSION[$key]['reset_at'] - $now) : 0;
+
+    $tmpDir = sys_get_temp_dir();
+    $ipFile = $tmpDir . DIRECTORY_SEPARATOR . 'fr_rl_' . $actionHash . '.json';
+    $remFile = 0;
+    if (file_exists($ipFile)) {
+        $content = @file_get_contents($ipFile);
+        if ($content) {
+            $parsed = json_decode($content, true);
+            if (is_array($parsed) && isset($parsed['reset_at'])) {
+                $remFile = max(0, $parsed['reset_at'] - $now);
+            }
+        }
     }
-    return max(0, $_SESSION[$key]['reset_at'] - time());
+
+    return max($remSession, $remFile);
 }
 
 /**
@@ -192,6 +295,14 @@ function getRateLimitRemainingSeconds(string $action): int {
  */
 function resetRateLimit(string $action): void {
     initSecureSession();
-    $key = 'ratelimit_' . md5($action);
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    $actionHash = md5($action . '_' . $ip);
+    $key = 'ratelimit_' . $actionHash;
     unset($_SESSION[$key]);
+
+    $tmpDir = sys_get_temp_dir();
+    $ipFile = $tmpDir . DIRECTORY_SEPARATOR . 'fr_rl_' . $actionHash . '.json';
+    if (file_exists($ipFile)) {
+        @unlink($ipFile);
+    }
 }
